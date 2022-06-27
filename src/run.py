@@ -6,6 +6,10 @@ from clip_video_encode import EmbeddingWebDatasetReader
 from evaluation import ZeroShotClassification
 
 
+def center_frame(seq):
+    return seq[:, seq.shape[1]//2]
+
+
 if __name__ == "__main__":
     DATA_DIR = "/mnt/data/CLIP-Kinetics700/data"
     SPLIT = "val"
@@ -26,14 +30,14 @@ if __name__ == "__main__":
     labels = pd.read_csv(os.path.join(DATA_DIR, "annotations/train.csv"))["label"].unique().tolist()
 
     prompt_func = lambda text: "A photo of " + text
+    # prompt_func = lambda text: text
 
     zsc = ZeroShotClassification(
         reader,
         labels,
-        lambda x: x.mean(axis=1),
+        center_frame,
         prompt_func=prompt_func,
     )
-
 
     res = zsc.evaluate()
     print(res)

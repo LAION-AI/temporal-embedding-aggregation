@@ -23,6 +23,7 @@ class ZeroShotClassification:
         labels_ = [prompt_func(l) for l in self.labels] # prompt engineering
         with torch.no_grad():
             self.lab_embeds = self.model.encode_text(clip.tokenize(labels_).to(self.device))
+            self.lab_embeds /= self.lab_embeds.norm(dim=-1, keepdim=True)
 
     def evaluate(self):
         results = {
@@ -36,12 +37,15 @@ class ZeroShotClassification:
             for batch in self.dataloader:
                 emb = batch["embeddings"].to(self.device)
                 labs = batch["text"]
-                
+
+                emb /= emb.norm(dim=-1, keepdim=True)
                 emb_agg = self.embedding_aggregator(emb)
-                scores = (emb_agg @ self.lab_embeds.T).cpu().numpy() # (batch_size x n_classes)
+
+                scores = (100.0 * emb_agg @ self.lab_embeds.T).softmax(dim=-1)
 
                 for i, lab in enumerate(labs):
-                    best_15_inds = np.argpartition(scores[i], -15)[-15:]
+
+                    values, best_15_inds = scores[i].topk(15)
                     best_15_labs = [self.labels[i] for i in best_15_inds]
 
                     count += emb.shape[0]
@@ -52,8 +56,3 @@ class ZeroShotClassification:
         for key in results.keys():
             results[key] /= count
         return results
-
-            
-
-
-
