@@ -3,7 +3,7 @@ import os
 import pandas as pd
 
 from clip_video_encode import EmbeddingWebDatasetReader
-from evaluation import ZeroShotClassification
+from evaluation import ZeroShotClassification, LinearProbeClassification
 
 
 def center_frame(seq):
@@ -12,32 +12,46 @@ def center_frame(seq):
 
 if __name__ == "__main__":
     DATA_DIR = "/mnt/data/CLIP-Kinetics700/data"
-    SPLIT = "val"
-    TARS = "ds_{000000..000003}.tar"
+    TRAIN_TARS = "ds_{000000..000048}.tar"
+    VAL_TARS = "ds_{000000..000003}.tar"
 
-    urls = os.path.join(DATA_DIR, SPLIT, TARS)
+    train_urls = os.path.join(DATA_DIR, "train", TRAIN_TARS)
+    val_urls = os.path.join(DATA_DIR, "val", VAL_TARS)
 
-    reader = EmbeddingWebDatasetReader(
-        urls,
+    train_reader = EmbeddingWebDatasetReader(
+        train_urls,
         standard_seq_len=-1,
         batch_size=1,
         num_prepro_workers=16,
-        to_tensor=True,
+        to_tensor=False,
+        enable_text=True,
+        enable_meta=False
+    )
+
+
+    val_reader = EmbeddingWebDatasetReader(
+        val_urls,
+        standard_seq_len=-1,
+        batch_size=1,
+        num_prepro_workers=16,
+        to_tensor=False,
         enable_text=True,
         enable_meta=False
     )
 
     labels = pd.read_csv(os.path.join(DATA_DIR, "annotations/train.csv"))["label"].unique().tolist()
 
-    prompt_func = lambda text: "A photo of " + text
+    prompt_func = lambda text: "a photo of " + text
     # prompt_func = lambda text: text
 
-    zsc = ZeroShotClassification(
-        reader,
-        labels,
+    eval_cls = LinearProbeClassification
+
+    ev = eval_cls(
+        train_reader,
+        val_reader,
         center_frame,
-        prompt_func=prompt_func,
+        labels,
     )
 
-    res = zsc.evaluate()
+    res = ev.evaluate()
     print(res)
