@@ -12,13 +12,13 @@ def concat_features(dataloader, aggr, labs):
     all_labels = []
     for b in dataloader:
         b_labs = b["text"]
-        aggr_embeds = aggr(b["embeddings"])
-        all_features.append(aggr_embeds)
-        for i, lab in enumerate(b_labs):
-            all_labels.append(labs.index(b_labs[i]))
+        if b["embeddings"].shape[1] > 0:
+            aggr_embeds = aggr(b["embeddings"])
+            all_features.append(aggr_embeds)
+            for i, lab in enumerate(b_labs):
+                all_labels.append(labs.index(b_labs[i]))
 
     return np.concatenate(all_features), np.array(all_labels)
-
 
 
 class LinearProbeClassification:
@@ -33,9 +33,6 @@ class LinearProbeClassification:
         self.embedding_aggregator = embedding_aggregator
         self.labels = labels
 
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model, _ = clip.load("ViT-B/32", device=self.device)
-
     def evaluate(self):
         train_feat, train_lab = concat_features(self.train_dataloader, self.embedding_aggregator, self.labels)
         val_feat, val_lab = concat_features(self.val_dataloader, self.embedding_aggregator, self.labels)
@@ -48,3 +45,4 @@ class LinearProbeClassification:
         predictions = classifier.predict(val_feat)
         accuracy = np.mean((val_lab == predictions).astype(np.float)) * 100.
         print(f"Accuracy = {accuracy:.3f}")
+        return accuracy
