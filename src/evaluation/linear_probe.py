@@ -42,7 +42,20 @@ class LinearProbeClassification:
         classifier.fit(train_feat, train_lab)
 
         # Evaluate using the logistic regression classifier
-        predictions = classifier.predict(val_feat)
-        accuracy = np.mean((val_lab == predictions).astype(np.float)) * 100.
-        print(f"Accuracy = {accuracy:.3f}")
-        return accuracy
+        predictions = classifier.predict_proba(val_feat)
+        top_n = np.argsort(predictions)[:,:-15-1:-1]
+
+        results = {
+            "top1": 0,
+            "top5": 0,
+            "top15": 0,
+        }
+
+        for i in range(len(val_lab)):
+            results["top1"] += (val_lab[i] in top_n[i, :1])
+            results["top5"] += (val_lab[i] in top_n[i, :5])
+            results["top15"] += (val_lab[i] in top_n[i])
+
+        for k in results.keys():
+            results[k] /= len(val_lab)
+        return results
