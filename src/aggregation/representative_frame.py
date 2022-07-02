@@ -4,9 +4,9 @@ Chooses one embedding as representative of whole video (usually center frame)
 video_embedding = get_representative(frame_embeddings)
 """
 
-from torch.nn import Module
+from torch import nn
 
-class RepresentativeFrame(Module):
+class RepresentativeFrame(nn.Module):
   def __init__(
       self,
       get_representative=lambda frames: frames[..., frames.shape[-2]//2, :], # center frame as default
