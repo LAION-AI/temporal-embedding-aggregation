@@ -83,7 +83,7 @@ class VideoEmbeddingTransformer(nn.Module):
         for attn, ff in self.layers:
             x = attn(x) + x
             x = ff(x) + x
-        x = x[..., -1, :] # last_embed = video embedding
+        x = x[..., 0, :] # first embedding = video embedding
         if self.proj is not None:
           x = self.proj(x)
 
