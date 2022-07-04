@@ -64,7 +64,7 @@ class Attention(nn.Module):
 
 
 class VideoEmbeddingTransformer(nn.Module):
-    def __init__(self, dim, depth, heads, dim_head, mlp_dim, dropout = 0.):
+    def __init__(self, dim, depth, heads, dim_head, mlp_dim, proj_dim=None, dropout = 0.):
         super().__init__()
         self.layers = nn.ModuleList([])
         for _ in range(depth):
@@ -72,9 +72,19 @@ class VideoEmbeddingTransformer(nn.Module):
                 PreNorm(dim, Attention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
                 PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
             ]))
+
+        self.proj = None if proj_dim is None else nn.Sequential(
+            nn.Linear(dim, (dim+proj_dim)//2),
+            nn.GELU(),
+            nn.Linear((dim+proj_dim)//2, proj_dim),
+        )
+
     def forward(self, x):
         for attn, ff in self.layers:
             x = attn(x) + x
             x = ff(x) + x
         x = x[..., -1, :] # last_embed = video embedding
+        if self.proj is not None:
+          x = self.proj(x)
+
         return x
