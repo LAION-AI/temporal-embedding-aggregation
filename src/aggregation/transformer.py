@@ -1,10 +1,33 @@
 """
 Transformer for encoding sequences of frame embeddings
 """
+import makh
 import torch
 
 from einops import rearrange, repeat
 from torch import nn
+
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
+        super().__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        position = torch.arange(max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+        pe = torch.zeros(max_len, 1, d_model)
+        pe[:, 0, 0::2] = torch.sin(position * div_term)
+        pe[:, 0, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Tensor, shape [seq_len, batch_size, embedding_dim]
+        """
+        x = x + self.pe[:x.size(0)]
+        return self.dropout(x)
+
 
 # source - https://github.com/lucidrains/vit-pytorch/blob/main/vit_pytorch/vit.py
 class PreNorm(nn.Module):
@@ -63,8 +86,8 @@ class Attention(nn.Module):
         return self.to_out(out)
 
 
-class VideoEmbeddingTransformer(nn.Module):
-    def __init__(self, dim, depth, heads, dim_head, mlp_dim, proj_dim=None, dropout = 0.):
+class Transformer(nn.Module):
+    def __init__(self, dim, depth, heads, dim_head, mlp_dim, dropout = 0.):
         super().__init__()
         self.layers = nn.ModuleList([])
         for _ in range(depth):
@@ -73,18 +96,32 @@ class VideoEmbeddingTransformer(nn.Module):
                 PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
             ]))
 
-        self.proj = None if proj_dim is None else nn.Sequential(
-            nn.Linear(dim, (dim+proj_dim)//2),
-            nn.GELU(),
-            nn.Linear((dim+proj_dim)//2, proj_dim),
-        )
-
     def forward(self, x):
         for attn, ff in self.layers:
             x = attn(x) + x
             x = ff(x) + x
-        x = x[..., 0, :] # first embedding = video embedding
-        if self.proj is not None:
-          x = self.proj(x)
-
         return x
+
+
+class VideoEmbeddingTransformer(nn.Module):
+    def __init__(self, dim, depth, heads, dim_head, mlp_dim, proj_dim=None, dropout = 0.):
+      super().__init__()
+      self.transformer = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
+      self.pos_encoding = PositionalEncoding(dim, dropout)
+
+      self.proj = None if proj_dim is None else nn.Sequential(
+          nn.Linear(dim, (dim+proj_dim)//2),
+          nn.GELU(),
+          nn.Linear((dim+proj_dim)//2, proj_dim),
+      )
+
+    def forward(self, x):
+      x = self.pos_encoding(x)
+      x = self.transformer(x)
+
+      x = x[..., 0, :] # first embed = video embedding
+
+      if self.proj is not None:
+        x = self.proj(x)
+
+      return x
