@@ -1,18 +1,25 @@
 """
 Transformer for encoding sequences of frame embeddings
 """
-import makh
+import math
 import torch
+import torch.nn.functional as F
 
 from einops import rearrange, repeat
-from torch import nn
+from torch import nn, einsum
+
+# cross attention - using multi-query + one-headed key / values as in PaLM w/ optional parallel feedforward
+def exists(val):
+    return val is not None
+
+def default(val, d):
+    return val if exists(val) else d
 
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
-        super().__init__()
-        self.dropout = nn.Dropout(p=dropout)
 
+    def __init__(self, d_model: int, max_len: int = 5000):
+        super().__init__()
         position = torch.arange(max_len).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
         pe = torch.zeros(max_len, 1, d_model)
@@ -26,102 +33,137 @@ class PositionalEncoding(nn.Module):
             x: Tensor, shape [seq_len, batch_size, embedding_dim]
         """
         x = x + self.pe[:x.size(0)]
-        return self.dropout(x)
-
-
-# source - https://github.com/lucidrains/vit-pytorch/blob/main/vit_pytorch/vit.py
-class PreNorm(nn.Module):
-    def __init__(self, dim, fn):
-        super().__init__()
-        self.norm = nn.LayerNorm(dim)
-        self.fn = fn
-    def forward(self, x, **kwargs):
-        return self.fn(self.norm(x), **kwargs)
-
-
-class FeedForward(nn.Module):
-    def __init__(self, dim, hidden_dim, dropout = 0.):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(dim, hidden_dim),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim, dim),
-            nn.Dropout(dropout)
-        )
-    def forward(self, x):
-        return self.net(x)
-
-
-class Attention(nn.Module):
-    def __init__(self, dim, heads = 8, dim_head = 64, dropout = 0.):
-        super().__init__()
-        inner_dim = dim_head *  heads
-        project_out = not (heads == 1 and dim_head == dim)
-
-        self.heads = heads
-        self.scale = dim_head ** -0.5
-
-        self.attend = nn.Softmax(dim = -1)
-        self.dropout = nn.Dropout(dropout)
-
-        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias = False)
-
-        self.to_out = nn.Sequential(
-            nn.Linear(inner_dim, dim),
-            nn.Dropout(dropout)
-        ) if project_out else nn.Identity()
-
-    def forward(self, x):
-        qkv = self.to_qkv(x).chunk(3, dim = -1)
-        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qkv)
-
-        dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
-
-        attn = self.attend(dots)
-        attn = self.dropout(attn)
-
-        out = torch.matmul(attn, v)
-        out = rearrange(out, 'b h n d -> b n (h d)')
-        return self.to_out(out)
-
-
-class Transformer(nn.Module):
-    def __init__(self, dim, depth, heads, dim_head, mlp_dim, dropout = 0.):
-        super().__init__()
-        self.layers = nn.ModuleList([])
-        for _ in range(depth):
-            self.layers.append(nn.ModuleList([
-                PreNorm(dim, Attention(dim, heads = heads, dim_head = dim_head, dropout = dropout)),
-                PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
-            ]))
-
-    def forward(self, x):
-        for attn, ff in self.layers:
-            x = attn(x) + x
-            x = ff(x) + x
         return x
 
 
-class VideoEmbeddingTransformer(nn.Module):
-    def __init__(self, dim, depth, heads, dim_head, mlp_dim, proj_dim=None, dropout = 0.):
-      super().__init__()
-      self.transformer = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
-      self.pos_encoding = PositionalEncoding(dim, dropout)
-
-      self.proj = None if proj_dim is None else nn.Sequential(
-          nn.Linear(dim, (dim+proj_dim)//2),
-          nn.GELU(),
-          nn.Linear((dim+proj_dim)//2, proj_dim),
-      )
+class LayerNorm(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.gamma = nn.Parameter(torch.ones(dim))
+        self.register_buffer("beta", torch.zeros(dim))
 
     def forward(self, x):
-      x = self.pos_encoding(x)
-      x = self.transformer(x)
+        return F.layer_norm(x, x.shape[-1:], self.gamma, self.beta)
+    
+    
+class CrossAttention(nn.Module):
+    def __init__(
+        self,
+        dim,
+        *,
+        context_dim=None,
+        dim_head=64,
+        heads=8,
+        parallel_ff=False,
+        ff_mult=4,
+        norm_context=False
+    ):
+        super().__init__()
+        self.heads = heads
+        self.scale = dim_head ** -0.5
+        inner_dim = heads * dim_head
+        context_dim = default(context_dim, dim)
 
-      x = x[..., 0, :] # first embed = video embedding
+        self.norm = LayerNorm(dim)
+        self.context_norm = LayerNorm(context_dim) if norm_context else nn.Identity()
 
-      if self.proj is not None:
-        x = self.proj(x)
+        self.to_q = nn.Linear(dim, inner_dim, bias=False)
+        self.to_kv = nn.Linear(context_dim, dim_head * 2, bias=False)
+        self.to_out = nn.Linear(inner_dim, dim, bias=False)
 
-      return x
+        # whether to have parallel feedforward
+
+        ff_inner_dim = ff_mult * dim
+
+        self.ff = nn.Sequential(
+            nn.Linear(dim, ff_inner_dim * 2, bias=False),
+            SwiGLU(),
+            nn.Linear(ff_inner_dim, dim, bias=False)
+        ) if parallel_ff else None
+
+    def forward(self, x, context):
+        """
+        einstein notation
+        b - batch
+        h - heads
+        n, i, j - sequence length (base sequence length, source, target)
+        d - feature dimension
+        """
+
+        # pre-layernorm, for queries and context
+
+        x = self.norm(x)
+        context = self.context_norm(context)
+
+        # get queries
+
+        q = self.to_q(x)
+        q = rearrange(q, 'b n (h d) -> b h n d', h = self.heads)
+
+        # scale
+
+        q = q * self.scale
+
+        # get key / values
+
+        k, v = self.to_kv(context).chunk(2, dim=-1)
+
+        # query / key similarity
+
+        sim = einsum('b h i d, b j d -> b h i j', q, k)
+
+        # attention
+
+        sim = sim - sim.amax(dim=-1, keepdim=True)
+        attn = sim.softmax(dim=-1)
+
+        # aggregate
+
+        out = einsum('b h i j, b j d -> b h i d', attn, v)
+
+        # merge and combine heads
+
+        out = rearrange(out, 'b h n d -> b n (h d)')
+        out = self.to_out(out)
+
+        # add parallel feedforward (for multimodal layers)
+
+        if exists(self.ff):
+            out = out + self.ff(x)
+
+        return out
+    
+    
+class AttentionalPooler(nn.Module):
+    def __init__(self, dim, context_dim, seq_len, heads, dim_head, proj_dim=None):
+        super().__init__()
+        self.pos_encoding = PositionalEncoding(dim)
+        self.cls_token = nn.Parameter(torch.randn(dim))
+
+        self.img_queries = nn.Parameter(torch.randn(seq_len + 1, dim)) # num image queries for multimodal, but 1 extra CLS for contrastive learning
+        self.img_attn_pool = CrossAttention(dim=dim, context_dim=dim, dim_head=dim_head, heads=heads, norm_context=True)
+        self.img_attn_pool_norm = LayerNorm(dim)
+        
+        self.proj = None if proj_dim is None else nn.Sequential(
+            nn.Linear(dim, (dim+proj_dim)//2),
+            nn.GELU(),
+            nn.Linear((dim+proj_dim)//2, proj_dim),
+        )
+
+    def forward(self, x):
+        
+        cls_tokens = repeat(self.cls_token, 'd -> b 1 d', b=x.shape[0])
+        x = torch.cat((cls_tokens, x), dim=-2)
+        
+        x = self.pos_encoding(x)
+        
+        img_queries = repeat(self.img_queries, 'n d -> b n d', b=x.shape[0])
+        img_queries = self.img_attn_pool(img_queries, x)
+        img_queries = self.img_attn_pool_norm(img_queries)
+        
+        video_embedding = img_queries[:, 0]
+        pred = video_embedding
+        if self.proj is not None:
+            pred = self.proj(video_embedding)
+
+        return pred

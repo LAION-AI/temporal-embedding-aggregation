@@ -1,0 +1,5 @@
+webdataset>=0.2.5
+pandas
+tqdm
+einops
+numpy
