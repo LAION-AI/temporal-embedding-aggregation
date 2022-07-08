@@ -37,7 +37,6 @@ def train_one_epoch(model, data, epoch, optimizer, scheduler, args):
         if batch_count % 100 == 0 or batch == num_batches_per_epoch:
             print(f"epoch {epoch} : step {step + 1} average loss = {running_loss/100}")
             running_loss = 0.0
-            break
 
 
 def evaluate(model, data, epoch, args):
@@ -69,5 +68,4 @@ def evaluate(model, data, epoch, args):
 
     for key in metrics:
         metrics[key] /= count
-
-    return metrics
+    print(metrics)

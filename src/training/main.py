@@ -23,6 +23,20 @@ DIM = 512 # for now this is constant
 def main():
     args = parse_args()
 
+    # TODO: model from params
+    args.model = "attentionalpooling"
+
+    # get the name of the experiments
+    if args.name is None:
+        args.name = '-'.join([
+            datetime.now().strftime("%Y_%m_%d-%H_%M_%S"),
+            f"model_{args.model}",
+            f"lr_{args.lr}",
+            f"b_{args.batch_size}",
+            f"j_{args.workers}",
+            f"p_{args.precision}",
+        ])
+
     # Get data:
     data = get_data(args)
 

@@ -67,11 +67,24 @@ def parse_args():
     parser.add_argument("--eps", type=float, default=1e-8, help="Adam epsilon.")
     parser.add_argument("--wd", type=float, default=0.2, help="Weight decay.")
     parser.add_argument(
-        "--warmup", type=int, default=10000, help="Number of steps to warmup for."
+        "--warmup", type=int, default=1000, help="Number of steps to warmup for."
     )
     parser.add_argument("--grad-clip", type=float, default=1.0, help="gradient clipping")
 
 
+    # Logging
+    parser.add_argument(
+        "--logs",
+        type=str,
+        default="./logs/",
+        help="Where to store tensorboard logs. Use None to avoid storing logs.",
+    ) 
+    parser.add_argument(
+        "--name",
+        type=str,
+        default=None,
+        help="Optional identifier for the experiment when storing logs. Otherwise use current time.",
+    )
 
     args = parser.parse_args()
     return args
