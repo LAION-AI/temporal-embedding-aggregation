@@ -22,7 +22,7 @@ def parse_args():
     parser.add_argument(
         "--sequence-length",
         type=int,
-        default=16,
+        default=None,
         help="Standard sequence length of all embedding sequences (by zero-pad or crop end)"
     )
     parser.add_argument(
@@ -40,6 +40,13 @@ def parse_args():
         help="Number of DataLoader workers"
     )
 
+    # Training
+    parser.add_argument(
+        "--epoch",
+        type=int,
+        default=1,
+        help="Number of epochs to train for",
+    )
 
     args = parser.parse_args()
     return args
