@@ -1,5 +1,9 @@
+import os
 
 import torch
+import torch.utils.tensorboard as tensorboard
+
+from datetime import datetime
 
 # TODO: better way of getting models:
 from aggregation.transformer import AttentionalPooler
@@ -34,15 +38,24 @@ def main():
             f"lr_{args.lr}",
             f"b_{args.batch_size}",
             f"j_{args.workers}",
-            f"p_{args.precision}",
         ])
+
+    # Set up logging:
+    args.tensorboard_path = os.path.join(args.logs, args.name, "tensorboard")
+    args.checkpoint_path = os.path.join(args.logs, args.name, "checkpoints")
+    for dirname in [args.tensorboard_path, args.checkpoint_path]:
+        os.makedirs(dirname, exist_ok=True)
+
+    writer = tensorboard.SummaryWriter(args.tensorboard_path)
+
+    # Resume from checkpoint
+    #TODO: implement this.
 
     # Get data:
     data = get_data(args)
 
     # Device:
     args.device = "cuda" if torch.cuda.is_available() else "cpu"
-
 
     # Create model:
     # TODO: make more systematic way of initializing model:
@@ -74,11 +87,10 @@ def main():
     # TODO: implement some kind of experiment continuation like open_clip
     for epoch in range(args.epochs):
 
-        train_one_epoch(model, data, epoch, optimizer, scheduler, args)
+        train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer)
 
         if 'val' in data:
-            evaluate(model, data, epoch, args)
-
+            evaluate(model, data, epoch, args, writer)
 
         # Save checkpoint
         # TODO: implement this
