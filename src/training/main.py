@@ -100,16 +100,34 @@ def main():
         scheduler = cosine_lr(optimizer, args.lr, args.warmup, total_steps)
 
 
-    # TODO: implement some kind of experiment continuation like open_clip
     for epoch in range(args.epochs):
         logging.info(f'Start epoch {epoch}')
         train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer)
+        completed_epoch = epoch + 1
 
         if 'val' in data:
             evaluate(model, data, epoch, args, writer)
 
         # Save checkpoint
-        # TODO: implement this
+        checkpoint_dict = {
+            "epoch": completed_epoch,
+            "name": args.name,
+            "state_dict": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+        }               
+        if completed_epoch == args.epochs or (
+            args.save_frequency > 0 and (completed_epoch % args.save_frequency) == 0
+        ):
+            torch.save(
+                checkpoint_dict,
+                os.path.join(args.checkpoint_path, f"epoch_{completed_epoch}.pt"),
+            )
+        if args.save_most_recent:
+            torch.save(
+                checkpoint_dict,
+                os.path.join(args.checkpoint_path, f"epoch_latest.pt"),
+            )
+
 
 
 if __name__ == "__main__":

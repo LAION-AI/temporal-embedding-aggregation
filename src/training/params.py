@@ -91,6 +91,15 @@ def parse_args():
         action="store_true",
         help="If true, more information is logged."
     )
+    parser.add_argument(
+        "--save-frequency", type=int, default=1, help="How often to save checkpoints."
+    )
+    parser.add_argument(
+        "--save-most-recent",
+        action="store_true",
+        default=False,
+        help="Always save the most recent model trained to epoch_latest.pt.",
+    )
 
     args = parser.parse_args()
     return args
