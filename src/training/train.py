@@ -38,7 +38,7 @@ def train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer):
         batch_count = i + 1
         if batch_count % 100 == 0 or batch == num_batches_per_epoch:
             logging.info(
-                f"Train Epoch: {epoch} | {((batch_count/num_batches_per_epoch) * 100.0):.2f}% complete "
+                f"Train Epoch: {epoch} [{batch_count}/{num_batches_per_epoch} ({((batch_count/num_batches_per_epoch) * 100.0):.2f}%)] "
                 f"Loss: {running_loss/100.0} "
                 f"LR: {optimizer.param_groups[0]['lr']:5f} "
             )
@@ -87,6 +87,6 @@ def evaluate(model, data, epoch, args, writer):
 
     logging.info(
         f"Eval epoch: {epoch} | "
-        f"top1 accuracy: {metrics['top1']}"
-        f"top5 accuracy: {metrics['top5']}"
+        f"top1 accuracy: {metrics['top1']} "
+        f"top5 accuracy: {metrics['top5']} "
     )
