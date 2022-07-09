@@ -64,9 +64,6 @@ def main():
 
     writer = tensorboard.SummaryWriter(args.tensorboard_path)
 
-    # Resume from checkpoint
-    #TODO: implement this.
-
     # Get data:
     data = get_data(args)
 
@@ -99,6 +96,7 @@ def main():
         total_steps = (args.train_num_samples // args.batch_size) * args.epochs
         scheduler = cosine_lr(optimizer, args.lr, args.warmup, total_steps)
 
+    # Resume from checkpoint
     start_epoch = 0
     if args.resume is not None:
         # NOTE: resuming doesn't work with torch >1.11.0 yet (https://github.com/pytorch/pytorch/issues/80809)
