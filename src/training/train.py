@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 
-def train_one_epoch(model, data, epoch, optimizer, scheduler, args):
+def train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer):
 
     num_batches_per_epoch = args.train_num_samples // args.batch_size
     model.train()
@@ -35,12 +35,17 @@ def train_one_epoch(model, data, epoch, optimizer, scheduler, args):
 
         batch_count = i + 1
         if batch_count % 100 == 0 or batch == num_batches_per_epoch:
-            print(f"epoch {epoch} : step {step + 1} average loss = {running_loss/100}")
+            log_data = {
+                "loss": running_loss,
+                "lr": optimizer.param_groups[0]["lr"],
+            }
+            for name, val in log_data.items():
+                writer.add_scalar(name, val, step + 1)
+
             running_loss = 0.0
 
 
-def evaluate(model, data, epoch, args):
-
+def evaluate(model, data, epoch, args, writer):
     dataloader = data["val"]
     # Get all kinetics700 lables
     with open("training/k700_labels.txt") as f:
@@ -66,6 +71,8 @@ def evaluate(model, data, epoch, args):
             for i in range(len(labs)):
                 metrics["top5"] += labs[i] in top5[i]
 
-    for key in metrics:
+    for key in metrics: # turn into accuracy
         metrics[key] /= count
-    print(metrics)
+
+    for name, val in metrics.items():
+        writer.add_scalar(name, val, epoch)
