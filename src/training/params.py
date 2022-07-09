@@ -65,6 +65,9 @@ def parse_args():
         type=str,
         help="path to latest checkpoint (default: none)",
     )
+    parser.add_argument(
+        "--seed", type=int, default=0, help="Default random seed."
+    )
 
     # Optimizer
     parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate.")

@@ -1,8 +1,9 @@
 import logging
 import os
-
+import random
 from datetime import datetime
 
+import numpy as np
 import torch
 import torch.utils.tensorboard as tensorboard
 
@@ -17,7 +18,6 @@ from training.scheduler import cosine_lr
 from training.train import train_one_epoch, evaluate
 
 
-# TODO: use this
 def random_seed(seed=42, rank=0):
     torch.manual_seed(seed + rank)
     np.random.seed(seed + rank)
@@ -71,6 +71,7 @@ def main():
     args.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # Create model:
+    random_seed(args.seed)
     # TODO: make more systematic way of initializing model:
     # TODO: define some model config from yaml or json or whatever
     model = AttentionalPooler(
