@@ -20,10 +20,18 @@ class ZeroShotClassification:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model, _ = clip.load("ViT-B/32", device=self.device)
 
-        labels_ = [prompt_func(l) for l in self.labels] # prompt engineering
-        with torch.no_grad():
-            self.lab_embeds = self.model.encode_text(clip.tokenize(labels_).to(self.device))
-            self.lab_embeds /= self.lab_embeds.norm(dim=-1, keepdim=True)
+        #labels_ = [prompt_func(l) for l in self.labels] # prompt engineering
+        
+        
+        embed_list = []
+        for template in templates:#Done as a loop over lists because model can't handle 700 x 30
+            texts = [template.format(classname) for classname in self.labels]
+            with torch.no_grad():
+                embed_list.append(self.model.encode_text(clip.tokenize(texts).to(self.device)))
+        
+        self.lab_embeds = torch.stack(embed_list, dim = 0)
+        self.lab_embeds /= self.lab_embeds.norm(dim=-1, keepdim=True)
+        self.lab_embeds = self.lab_embeds.to(torch.float32)
 
     def evaluate(self):
         results = {
@@ -40,9 +48,19 @@ class ZeroShotClassification:
 
                 emb /= emb.norm(dim=-1, keepdim=True)
                 emb_agg = self.embedding_aggregator(emb)
-
+                emb_agg = emb_agg.to(torch.float32)
+                
+                
                 scores = (100.0 * emb_agg @ self.lab_embeds.T).softmax(dim=-1)
 
+                total_scores = []
+                for label in self.lab_embeds:
+                    scores = (100.0 * emb_agg @ label.T).softmax(dim=-1)
+                    total_scores.append(scores)
+                 
+                total_scores = torch.stack(total_scores, dim = 0)
+                scores = torch.max(total_scores, dim = 0)[0]
+                
                 for i, lab in enumerate(labs):
 
                     values, best_15_inds = scores[i].topk(15)
@@ -56,3 +74,34 @@ class ZeroShotClassification:
         for key in results.keys():
             results[key] /= count
         return results
+    
+templates = [
+    'a photo of {}.',
+    'a photo of a person {}.',
+    'a photo of a person using {}.',
+    'a photo of a person doing {}.',
+    'a photo of a person during {}.',
+    'a photo of a person performing {}.',
+    'a photo of a person practicing {}.',
+    'a video of {}.',
+    'a video of a person {}.',
+    'a video of a person using {}.',
+    'a video of a person doing {}.',
+    'a video of a person during {}.',
+    'a video of a person performing {}.',
+    'a video of a person practicing {}.',
+    'a example of {}.',
+    'a example of a person {}.',
+    'a example of a person using {}.',
+    'a example of a person doing {}.',
+    'a example of a person during {}.',
+    'a example of a person performing {}.',
+    'a example of a person practicing {}.',
+    'a demonstration of {}.',
+    'a demonstration of a person {}.',
+    'a demonstration of a person using {}.',
+    'a demonstration of a person doing {}.',
+    'a demonstration of a person during {}.',
+    'a demonstration of a person performing {}.',
+    'a demonstration of a person practicing {}.',
+]
