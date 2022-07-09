@@ -59,6 +59,12 @@ def parse_args():
         default=1,
         help="Number of epochs to train for",
     )
+    parser.add_argument(
+        "--resume",
+        default=None,
+        type=str,
+        help="path to latest checkpoint (default: none)",
+    )
 
     # Optimizer
     parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate.")

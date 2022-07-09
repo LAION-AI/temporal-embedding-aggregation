@@ -99,8 +99,31 @@ def main():
         total_steps = (args.train_num_samples // args.batch_size) * args.epochs
         scheduler = cosine_lr(optimizer, args.lr, args.warmup, total_steps)
 
+    start_epoch = 0
+    if args.resume is not None:
+        # NOTE: resuming doesn't work with torch >1.11.0 yet (https://github.com/pytorch/pytorch/issues/80809)
+        if os.path.isfile(args.resume):
+            checkpoint = torch.load(args.resume, map_location=args.device)
+            if 'epoch' in checkpoint:
+                # resuming a train checkpoint w/ epoch and optimizer state
+                start_epoch = checkpoint["epoch"]
+                sd = checkpoint["state_dict"]
+                if next(iter(sd.items()))[0].startswith('module'):
+                    sd = {k[len('module.'):]: v for k, v in sd.items()}
+                model.load_state_dict(sd)
+                if optimizer is not None:
+                    optimizer.load_state_dict(checkpoint["optimizer"])
+                logging.info(f"=> resuming checkpoint '{args.resume}' (epoch {start_epoch})")
+            else:
+                # loading a bare (model only) checkpoint for fine-tune or evaluation
+                model.load_state_dict(checkpoint)
+                logging.info(f"=> loaded checkpoint '{args.resume}' (epoch {start_epoch})")
+        else:
+            logging.info(f"=> no checkpoint found at '{args.resume}'")
 
-    for epoch in range(args.epochs):
+
+
+    for epoch in range(start_epoch, args.epochs):
         logging.info(f'Start epoch {epoch}')
         train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer)
         completed_epoch = epoch + 1
