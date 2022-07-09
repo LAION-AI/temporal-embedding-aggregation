@@ -85,6 +85,12 @@ def parse_args():
         default=None,
         help="Optional identifier for the experiment when storing logs. Otherwise use current time.",
     )
+    parser.add_argument(
+        "--debug",
+        default=False,
+        action="store_true",
+        help="If true, more information is logged."
+    )
 
     args = parser.parse_args()
     return args

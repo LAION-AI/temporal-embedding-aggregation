@@ -1,14 +1,17 @@
+import logging
 import os
+
+from datetime import datetime
 
 import torch
 import torch.utils.tensorboard as tensorboard
 
-from datetime import datetime
 
 # TODO: better way of getting models:
 from aggregation.transformer import AttentionalPooler
 
 from training.data import get_data
+from training.logger import setup_logging
 from training.params import parse_args
 from training.scheduler import cosine_lr
 from training.train import train_one_epoch, evaluate
@@ -41,6 +44,19 @@ def main():
         ])
 
     # Set up logging:
+    log_base_path = os.path.join(args.logs, args.name)
+    os.makedirs(log_base_path, exist_ok=True)
+    log_filename = "out.log"
+    args.log_path = os.path.join(log_base_path, log_filename)
+    if os.path.exists(args.log_path):
+        print(
+            "Error. Experiment already exists. Use --name {} to specify a new experiment."
+        )
+        return -1
+
+    args.log_level = logging.DEBUG if args.debug else logging.INFO
+    setup_logging(args.log_path, args.log_level)
+
     args.tensorboard_path = os.path.join(args.logs, args.name, "tensorboard")
     args.checkpoint_path = os.path.join(args.logs, args.name, "checkpoints")
     for dirname in [args.tensorboard_path, args.checkpoint_path]:
@@ -86,7 +102,7 @@ def main():
 
     # TODO: implement some kind of experiment continuation like open_clip
     for epoch in range(args.epochs):
-
+        logging.info(f'Start epoch {epoch}')
         train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer)
 
         if 'val' in data:
