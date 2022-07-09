@@ -1,6 +1,8 @@
 
 import torch
 
+from datetime import datetime
+
 # TODO: better way of getting models:
 from aggregation.transformer import AttentionalPooler
 
@@ -34,8 +36,17 @@ def main():
             f"lr_{args.lr}",
             f"b_{args.batch_size}",
             f"j_{args.workers}",
-            f"p_{args.precision}",
         ])
+
+    # Set up logging:
+    args.tensorboard_path = os.path.join(args.logs, args.name, "tensorboard")
+    args.checkpoint_path = os.path.join(args.logs, args.name, "checkpoints")
+    for dirname in [args.tensorboard_path, args.checkpoint_path]:
+        os.makedirs(dirname, exist_ok=True)
+
+
+    # Resume from checkpoint
+    #TODO: implement this.
 
     # Get data:
     data = get_data(args)
