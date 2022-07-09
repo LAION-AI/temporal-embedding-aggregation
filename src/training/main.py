@@ -99,17 +99,58 @@ def main():
         total_steps = (args.train_num_samples // args.batch_size) * args.epochs
         scheduler = cosine_lr(optimizer, args.lr, args.warmup, total_steps)
 
+    start_epoch = 0
+    if args.resume is not None:
+        # NOTE: resuming doesn't work with torch >1.11.0 yet (https://github.com/pytorch/pytorch/issues/80809)
+        if os.path.isfile(args.resume):
+            checkpoint = torch.load(args.resume, map_location=args.device)
+            if 'epoch' in checkpoint:
+                # resuming a train checkpoint w/ epoch and optimizer state
+                start_epoch = checkpoint["epoch"]
+                sd = checkpoint["state_dict"]
+                if next(iter(sd.items()))[0].startswith('module'):
+                    sd = {k[len('module.'):]: v for k, v in sd.items()}
+                model.load_state_dict(sd)
+                if optimizer is not None:
+                    optimizer.load_state_dict(checkpoint["optimizer"])
+                logging.info(f"=> resuming checkpoint '{args.resume}' (epoch {start_epoch})")
+            else:
+                # loading a bare (model only) checkpoint for fine-tune or evaluation
+                model.load_state_dict(checkpoint)
+                logging.info(f"=> loaded checkpoint '{args.resume}' (epoch {start_epoch})")
+        else:
+            logging.info(f"=> no checkpoint found at '{args.resume}'")
 
-    # TODO: implement some kind of experiment continuation like open_clip
-    for epoch in range(args.epochs):
+
+
+    for epoch in range(start_epoch, args.epochs):
         logging.info(f'Start epoch {epoch}')
         train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer)
+        completed_epoch = epoch + 1
 
         if 'val' in data:
             evaluate(model, data, epoch, args, writer)
 
         # Save checkpoint
-        # TODO: implement this
+        checkpoint_dict = {
+            "epoch": completed_epoch,
+            "name": args.name,
+            "state_dict": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+        }               
+        if completed_epoch == args.epochs or (
+            args.save_frequency > 0 and (completed_epoch % args.save_frequency) == 0
+        ):
+            torch.save(
+                checkpoint_dict,
+                os.path.join(args.checkpoint_path, f"epoch_{completed_epoch}.pt"),
+            )
+        if args.save_most_recent:
+            torch.save(
+                checkpoint_dict,
+                os.path.join(args.checkpoint_path, f"epoch_latest.pt"),
+            )
+
 
 
 if __name__ == "__main__":

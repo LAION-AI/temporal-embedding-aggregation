@@ -59,6 +59,12 @@ def parse_args():
         default=1,
         help="Number of epochs to train for",
     )
+    parser.add_argument(
+        "--resume",
+        default=None,
+        type=str,
+        help="path to latest checkpoint (default: none)",
+    )
 
     # Optimizer
     parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate.")
@@ -90,6 +96,15 @@ def parse_args():
         default=False,
         action="store_true",
         help="If true, more information is logged."
+    )
+    parser.add_argument(
+        "--save-frequency", type=int, default=1, help="How often to save checkpoints."
+    )
+    parser.add_argument(
+        "--save-most-recent",
+        action="store_true",
+        default=False,
+        help="Always save the most recent model trained to epoch_latest.pt.",
     )
 
     args = parser.parse_args()
