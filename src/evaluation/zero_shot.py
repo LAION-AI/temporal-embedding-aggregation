@@ -20,8 +20,6 @@ class ZeroShotClassification:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model, _ = clip.load("ViT-B/32", device=self.device)
 
-        #labels_ = [prompt_func(l) for l in self.labels] # prompt engineering
-        
         
         embed_list = []
         for template in templates:#Done as a loop over lists because model can't handle 700 x 30
