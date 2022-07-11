@@ -2,16 +2,16 @@
 Experimental repo for testing various ways of aggregating information across video frame embeddings
 
 
-# Kinetics700 Baseline results:
+## Kinetics700 Baseline results:
 
-## Zero-shot Classification:
+### Zero-shot Classification:
 |                  | Accuracy |
 | ---------------- | -------- |
 |      Top-1       |   0.31   |
 |      Top-5       |   0.56   |
 | mean(Top1, Top5) |   0.44   |
 
-## Linear-probe Classification:
+### Linear-probe Classification:
 
 |                  | Accuracy |
 | ---------------- | -------- |
