@@ -56,9 +56,10 @@ class ZeroShotClassification:
         with torch.no_grad():
             for batch in self.dataloader:
                 emb = batch["embeddings"].to(self.device)
+                emb /= emb.norm(dim=-1, keepdim=True)
                 labs = torch.Tensor([self.labels.index(l) for l in batch["text"]]).to(self.device)
 
-                similarity = emb @ self.zeroshot_weights
+                similarity = 100.0 * emb @ self.zeroshot_weights
                 similarity = similarity.softmax(dim=-1) 
                 scores = similarity.mean(dim=1)
 
