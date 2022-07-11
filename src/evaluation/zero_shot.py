@@ -5,6 +5,13 @@ import clip
 import torch
 import numpy as np
 
+
+def accuracy(output, target, topk=(1,)):
+    pred = output.topk(max(topk), 1, True, True)[1].t()
+    correct = pred.eq(target.view(1, -1).expand_as(pred))
+    return [float(correct[:k].reshape(-1).float().sum(0, keepdim=True).cpu().numpy()) for k in topk]
+
+
 class ZeroShotClassification:
     def __init__(self,
         dataloader,
@@ -13,6 +20,7 @@ class ZeroShotClassification:
         prompt_func=lambda x: x
     ):
 
+
         self.dataloader = dataloader
         self.embedding_aggregator = embedding_aggregator
         self.labels = labels
@@ -20,10 +28,22 @@ class ZeroShotClassification:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model, _ = clip.load("ViT-B/32", device=self.device)
 
-        labels_ = [prompt_func(l) for l in self.labels] # prompt engineering
+        # Create zero-shot classifier weights
+        with open("evaluation/zs_templates.txt", "r") as f:
+            templates = f.read().splitlines()
+
         with torch.no_grad():
-            self.lab_embeds = self.model.encode_text(clip.tokenize(labels_).to(self.device))
-            self.lab_embeds /= self.lab_embeds.norm(dim=-1, keepdim=True)
+            self.zeroshot_weights = []
+            for classname in self.labels:
+                texts = [template.format(classname) for template in templates]
+                texts = clip.tokenize(texts).to(self.device)
+                class_embeddings = self.model.encode_text(texts)
+                class_embeddings /= class_embeddings.norm(dim=-1, keepdim=True)
+                class_embedding = class_embeddings.mean(dim=0)
+                class_embedding /= class_embedding.norm()
+                self.zeroshot_weights.append(class_embedding)
+            self.zeroshot_weights = torch.stack(self.zeroshot_weights, dim=1).to(self.device)
+
 
     def evaluate(self):
         results = {
@@ -36,22 +56,17 @@ class ZeroShotClassification:
         with torch.no_grad():
             for batch in self.dataloader:
                 emb = batch["embeddings"].to(self.device)
-                labs = batch["text"]
+                labs = torch.Tensor([self.labels.index(l) for l in batch["text"]]).to(self.device)
 
-                emb /= emb.norm(dim=-1, keepdim=True)
-                emb_agg = self.embedding_aggregator(emb)
+                similarity = emb @ self.zeroshot_weights
+                similarity = similarity.softmax(dim=-1) 
+                scores = similarity.mean(dim=1)
 
-                scores = (100.0 * emb_agg @ self.lab_embeds.T).softmax(dim=-1)
-
-                for i, lab in enumerate(labs):
-
-                    values, best_15_inds = scores[i].topk(15)
-                    best_15_labs = [self.labels[i] for i in best_15_inds]
-
-                    count += emb.shape[0]
-                    results["top1"] += (lab in best_15_labs[:1])
-                    results["top5"] += (lab in best_15_labs[:5])
-                    results["top15"] += (lab in best_15_labs[:15])
+                acc1, acc5, acc15 = accuracy(scores, labs, topk=(1, 5, 15))
+                results["top1"] += acc1
+                results["top5"] += acc5
+                results["top15"] += acc15
+                count += len(emb)
 
         for key in results.keys():
             results[key] /= count
