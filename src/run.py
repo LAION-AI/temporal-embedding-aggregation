@@ -2,7 +2,7 @@ import os
 
 import pandas as pd
 
-from clip_video_encode import EmbeddingWebDatasetReader
+from clip_video_encode.dataset import EmbeddingWebDatasetReader
 from evaluation import ZeroShotClassification, LinearProbeClassification
 
 
@@ -11,18 +11,18 @@ def center_frame(seq):
 
 
 if __name__ == "__main__":
-    DATA_DIR = "/mnt/data/CLIP-Kinetics700/data"
-    TRAIN_TARS = "ds_{000000..000048}.tar"
-    VAL_TARS = "ds_{000000..000003}.tar"
+    DATA_DIR = "/home/iejmac/wds_kinetics"
+    TRAIN_TARS = "ds_{000000..000053}.tar"
+    VAL_TARS = "ds_{000054..000057}.tar"
 
-    train_urls = os.path.join(DATA_DIR, "train", TRAIN_TARS)
-    val_urls = os.path.join(DATA_DIR, "val", VAL_TARS)
+    train_urls = os.path.join(DATA_DIR, TRAIN_TARS)
+    val_urls = os.path.join(DATA_DIR, VAL_TARS)
 
     train_reader = EmbeddingWebDatasetReader(
         train_urls,
         standard_seq_len=-1,
         batch_size=1,
-        num_prepro_workers=16,
+        num_prepro_workers=6,
         to_tensor=False,
         enable_text=True,
         enable_meta=False
@@ -33,7 +33,7 @@ if __name__ == "__main__":
         val_urls,
         standard_seq_len=-1,
         batch_size=1,
-        num_prepro_workers=16,
+        num_prepro_workers=6,
         to_tensor=False,
         enable_text=True,
         enable_meta=False
@@ -42,15 +42,15 @@ if __name__ == "__main__":
     labels = pd.read_csv(os.path.join(DATA_DIR, "annotations/train.csv"))["label"].unique().tolist()
 
     prompt_func = lambda text: "a photo of " + text
-    # prompt_func = lambda text: text
 
-    eval_cls = LinearProbeClassification
+    # eval_cls = LinearProbeClassification
+    eval_cls = ZeroShotClassification
 
     ev = eval_cls(
-        train_reader,
         val_reader,
-        center_frame,
         labels,
+        center_frame,
+        prompt_func
     )
 
     res = ev.evaluate()
