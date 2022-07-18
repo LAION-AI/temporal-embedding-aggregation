@@ -23,11 +23,12 @@ def train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer):
         scheduler(step)
 
         embeddings = batch["embeddings"].to(args.device)
+        zero_masks = batch["zero_mask"].to(args.device)
         labs = torch.Tensor([all_labels.index(l) for l in batch["text"]]).long().to(args.device)
 
         optimizer.zero_grad()
 
-        pred = model(embeddings)
+        pred = model(embeddings, zero_masks)
         loss = loss_func(pred, labs)
         running_loss += loss.item() # maybe this doesn't make sense
 
