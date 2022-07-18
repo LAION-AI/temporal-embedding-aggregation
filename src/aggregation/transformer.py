@@ -81,7 +81,7 @@ class CrossAttention(nn.Module):
             nn.Linear(ff_inner_dim, dim, bias=False)
         ) if parallel_ff else None
 
-    def forward(self, x, context):
+    def forward(self, x, context, attn_mask):
         """
         einstein notation
         b - batch
@@ -89,7 +89,6 @@ class CrossAttention(nn.Module):
         n, i, j - sequence length (base sequence length, source, target)
         d - feature dimension
         """
-
         # pre-layernorm, for queries and context
 
         x = self.norm(x)
@@ -113,6 +112,7 @@ class CrossAttention(nn.Module):
         sim = einsum('b h i d, b j d -> b h i j', q, k)
 
         # attention
+        sim = sim.masked_fill(attn_mask == 0, float('-inf'))
 
         sim = sim - sim.amax(dim=-1, keepdim=True)
         attn = sim.softmax(dim=-1)
@@ -150,15 +150,23 @@ class AttentionalPooler(nn.Module):
             nn.Linear((dim+proj_dim)//2, proj_dim),
         )
 
-    def forward(self, x):
-        
+    def forward(self, x, zero_masks):
         cls_tokens = repeat(self.cls_token, 'd -> b 1 d', b=x.shape[0])
+
+        # prepend CLS token
         x = torch.cat((cls_tokens, x), dim=-2)
+        zero_masks = torch.cat((torch.ones(x.shape[0], 1), zero_masks), dim=-1)
+
+        # create attn mask
+        attn_mask = repeat(zero_masks, 'b s -> b r s', r=zero_masks.shape[-1])
+        attn_mask = torch.tril(attn_mask)
+        attn_mask[:, 0] = zero_masks # cls token masks should attend to all but zero_pads irregardless of position
+        attn_mask = attn_mask.view(x.shape[0], 1, zero_masks.shape[-1], zero_masks.shape[-1])
         
         x = self.pos_encoding(x)
         
         img_queries = repeat(self.img_queries, 'n d -> b n d', b=x.shape[0])
-        img_queries = self.img_attn_pool(img_queries, x)
+        img_queries = self.img_attn_pool(img_queries, x, attn_mask)
         img_queries = self.img_attn_pool_norm(img_queries)
         
         video_embedding = img_queries[:, 0]
