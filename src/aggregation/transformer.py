@@ -155,7 +155,7 @@ class AttentionalPooler(nn.Module):
 
         # prepend CLS token
         x = torch.cat((cls_tokens, x), dim=-2)
-        zero_masks = torch.cat((torch.ones(x.shape[0], 1), zero_masks), dim=-1)
+        zero_masks = torch.cat((torch.ones(x.shape[0], 1).to(x.device), zero_masks), dim=-1)
 
         # create attn mask
         attn_mask = repeat(zero_masks, 'b s -> b r s', r=zero_masks.shape[-1])
