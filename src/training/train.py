@@ -1,4 +1,5 @@
 """training code"""
+import time
 import logging
 
 import torch
@@ -7,7 +8,7 @@ from torch import nn
 
 
 def train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer):
-
+    t0 = time.perf_counter()
     num_batches_per_epoch = args.train_num_samples // args.batch_size
     model.train()
     loss_func = nn.CrossEntropyLoss() # right now only CLIP-Kinetics700
@@ -52,6 +53,8 @@ def train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer):
                 writer.add_scalar(name, val, step + 1)
 
             running_loss = 0.0
+    tf = time.perf_counter()
+    logging.info(f"Epoch completed in {tf-t0}[s]")
 
 
 def evaluate(model, data, epoch, args, writer):
@@ -70,9 +73,10 @@ def evaluate(model, data, epoch, args, writer):
         for i, batch in enumerate(dataloader):
 
             embeddings = batch["embeddings"].to(args.device)
+            zero_masks = batch["zero_mask"].to(args.device)
             labs = torch.Tensor([all_labels.index(l) for l in batch["text"]])
 
-            pred = model(embeddings).cpu()
+            pred = model(embeddings, zero_masks).cpu()
             top5 = pred.topk(5, dim=-1).indices
 
             count += len(labs)
