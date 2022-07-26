@@ -41,6 +41,7 @@ def main():
             f"lr_{args.lr}",
             f"b_{args.batch_size}",
             f"j_{args.workers}",
+            f"depth_{args.depth}",
         ])
 
     # Set up logging:
