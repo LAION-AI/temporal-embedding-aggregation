@@ -151,10 +151,6 @@ class AttentionalPooler(nn.Module):
                 LayerNorm(dim),
             ]))
 
-        # self.img_queries = nn.Parameter(torch.randn(seq_len + 1, dim)) # num image queries for multimodal, but 1 extra CLS for contrastive learning
-        # self.img_attn_pool = CrossAttention(dim=dim, context_dim=dim, dim_head=dim_head, heads=heads, norm_context=True)
-        # self.img_attn_pool_norm = LayerNorm(dim)
-        
         self.proj = None if proj_dim is None else nn.Sequential(
             nn.Linear(dim, (dim+proj_dim)//2),
             nn.GELU(),

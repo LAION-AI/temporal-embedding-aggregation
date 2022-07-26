@@ -80,6 +80,7 @@ def main():
         seq_len=args.sequence_length,
         heads=8,
         dim_head=64,
+        depth=args.depth,
         proj_dim=700, # kinetics700
     ).to(args.device)
 
