@@ -137,7 +137,8 @@ class CrossAttention(nn.Module):
 class AttentionalPooler(nn.Module):
     def __init__(self, dim, context_dim, seq_len, heads, dim_head, depth=1, proj_dim=None):
         super().__init__()
-        self.pos_encoding = PositionalEncoding(dim, seq_len + 1)
+        self.pos_encoding = nn.Parameter(torch.randn(1, seq_len + 1, dim))
+
         self.cls_token = nn.Parameter(torch.randn(dim))
 
         self.queries = nn.ParameterList([])
@@ -170,7 +171,7 @@ class AttentionalPooler(nn.Module):
         attn_mask[:, 0] = zero_masks # cls token masks should attend to all but zero_pads irregardless of position
         attn_mask = attn_mask.view(x.shape[0], 1, zero_masks.shape[-1], zero_masks.shape[-1])
         
-        x = self.pos_encoding(x)
+        x += self.pos_encoding
 
         for i, (pool, norm) in enumerate(self.layers):
             img_queries = repeat(self.queries[i], 'n d -> b n d', b=x.shape[0])
