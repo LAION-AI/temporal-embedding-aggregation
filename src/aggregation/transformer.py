@@ -22,17 +22,17 @@ class PositionalEncoding(nn.Module):
         super().__init__()
         position = torch.arange(max_len).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
-        pe = torch.zeros(max_len, 1, d_model)
-        pe[:, 0, 0::2] = torch.sin(position * div_term)
-        pe[:, 0, 1::2] = torch.cos(position * div_term)
+        pe = torch.zeros(1, max_len, d_model)
+        pe[0, :, 0::2] = torch.sin(position * div_term)
+        pe[0, :, 1::2] = torch.cos(position * div_term)
         self.register_buffer('pe', pe)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            x: Tensor, shape [seq_len, batch_size, embedding_dim]
+            x: Tensor, shape [batch_size, seq_len, embedding_dim]
         """
-        x = x + self.pe[:x.size(0)]
+        x = x + self.pe[:, :x.size(1)]
         return x
 
 
@@ -137,7 +137,8 @@ class CrossAttention(nn.Module):
 class AttentionalPooler(nn.Module):
     def __init__(self, dim, context_dim, seq_len, heads, dim_head, depth=1, proj_dim=None):
         super().__init__()
-        self.pos_encoding = PositionalEncoding(dim)
+        self.pos_encoding = nn.Parameter(torch.randn(1, seq_len + 1, dim))
+
         self.cls_token = nn.Parameter(torch.randn(dim))
 
         self.queries = nn.ParameterList([])
@@ -170,7 +171,7 @@ class AttentionalPooler(nn.Module):
         attn_mask[:, 0] = zero_masks # cls token masks should attend to all but zero_pads irregardless of position
         attn_mask = attn_mask.view(x.shape[0], 1, zero_masks.shape[-1], zero_masks.shape[-1])
         
-        x = self.pos_encoding(x)
+        x += self.pos_encoding
 
         for i, (pool, norm) in enumerate(self.layers):
             img_queries = repeat(self.queries[i], 'n d -> b n d', b=x.shape[0])
