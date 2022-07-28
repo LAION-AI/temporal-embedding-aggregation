@@ -30,9 +30,9 @@ class PositionalEncoding(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            x: Tensor, shape [seq_len, batch_size, embedding_dim]
+            x: Tensor, shape [batch_size, seq_len, embedding_dim]
         """
-        x = x + self.pe[:x.size(0)]
+        x = x + self.pe[:, :x.size(1)]
         return x
 
 
@@ -137,7 +137,7 @@ class CrossAttention(nn.Module):
 class AttentionalPooler(nn.Module):
     def __init__(self, dim, context_dim, seq_len, heads, dim_head, depth=1, proj_dim=None):
         super().__init__()
-        self.pos_encoding = PositionalEncoding(dim, seq_len)
+        self.pos_encoding = PositionalEncoding(dim, seq_len + 1)
         self.cls_token = nn.Parameter(torch.randn(dim))
 
         self.queries = nn.ParameterList([])
