@@ -41,6 +41,7 @@ def main():
             f"lr_{args.lr}",
             f"b_{args.batch_size}",
             f"j_{args.workers}",
+            f"depth_{args.depth}",
         ])
 
     # Set up logging:
@@ -80,6 +81,7 @@ def main():
         seq_len=args.sequence_length,
         heads=8,
         dim_head=64,
+        depth=args.depth,
         proj_dim=700, # kinetics700
     ).to(args.device)
 

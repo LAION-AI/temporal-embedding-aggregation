@@ -69,6 +69,12 @@ def parse_args():
         "--seed", type=int, default=0, help="Default random seed."
     )
 
+    # Model:
+    # TODO: substitute this for some model config system
+    parser.add_argument(
+        "--depth", type=int, default=1, help="Number of layers for attentional pooler"
+    )
+
     # Optimizer
     parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate.")
     parser.add_argument("--beta1", type=float, default=0.9, help="Adam beta 1.")

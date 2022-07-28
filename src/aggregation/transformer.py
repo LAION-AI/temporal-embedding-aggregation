@@ -135,15 +135,22 @@ class CrossAttention(nn.Module):
     
     
 class AttentionalPooler(nn.Module):
-    def __init__(self, dim, context_dim, seq_len, heads, dim_head, proj_dim=None):
+    def __init__(self, dim, context_dim, seq_len, heads, dim_head, depth=1, proj_dim=None):
         super().__init__()
         self.pos_encoding = PositionalEncoding(dim)
         self.cls_token = nn.Parameter(torch.randn(dim))
 
-        self.img_queries = nn.Parameter(torch.randn(seq_len + 1, dim)) # num image queries for multimodal, but 1 extra CLS for contrastive learning
-        self.img_attn_pool = CrossAttention(dim=dim, context_dim=dim, dim_head=dim_head, heads=heads, norm_context=True)
-        self.img_attn_pool_norm = LayerNorm(dim)
-        
+        self.queries = nn.ParameterList([])
+        self.layers = nn.ModuleList([])
+        for _ in range(depth):
+            self.queries.append(
+                nn.Parameter(torch.randn(seq_len + 1, dim)),
+            )
+            self.layers.append(nn.ModuleList([
+                CrossAttention(dim=dim, context_dim=dim, dim_head=dim_head, heads=heads, norm_context=True),
+                LayerNorm(dim),
+            ]))
+
         self.proj = None if proj_dim is None else nn.Sequential(
             nn.Linear(dim, (dim+proj_dim)//2),
             nn.GELU(),
@@ -155,7 +162,7 @@ class AttentionalPooler(nn.Module):
 
         # prepend CLS token
         x = torch.cat((cls_tokens, x), dim=-2)
-        zero_masks = torch.cat((torch.ones(x.shape[0], 1), zero_masks), dim=-1)
+        zero_masks = torch.cat((torch.ones(x.shape[0], 1).to(x.device), zero_masks), dim=-1)
 
         # create attn mask
         attn_mask = repeat(zero_masks, 'b s -> b r s', r=zero_masks.shape[-1])
@@ -164,10 +171,11 @@ class AttentionalPooler(nn.Module):
         attn_mask = attn_mask.view(x.shape[0], 1, zero_masks.shape[-1], zero_masks.shape[-1])
         
         x = self.pos_encoding(x)
-        
-        img_queries = repeat(self.img_queries, 'n d -> b n d', b=x.shape[0])
-        img_queries = self.img_attn_pool(img_queries, x, attn_mask)
-        img_queries = self.img_attn_pool_norm(img_queries)
+
+        for i, (pool, norm) in enumerate(self.layers):
+            img_queries = repeat(self.queries[i], 'n d -> b n d', b=x.shape[0])
+            img_queries = pool(img_queries, x, attn_mask)
+            img_queries = norm(img_queries)
         
         video_embedding = img_queries[:, 0]
         pred = video_embedding

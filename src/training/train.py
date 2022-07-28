@@ -70,9 +70,10 @@ def evaluate(model, data, epoch, args, writer):
         for i, batch in enumerate(dataloader):
 
             embeddings = batch["embeddings"].to(args.device)
+            zero_masks = batch["zero_mask"].to(args.device)
             labs = torch.Tensor([all_labels.index(l) for l in batch["text"]])
 
-            pred = model(embeddings).cpu()
+            pred = model(embeddings, zero_masks).cpu()
             top5 = pred.topk(5, dim=-1).indices
 
             count += len(labs)
