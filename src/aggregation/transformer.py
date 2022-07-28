@@ -90,7 +90,6 @@ class CrossAttention(nn.Module):
         d - feature dimension
         """
         # pre-layernorm, for queries and context
-
         x = self.norm(x)
         context = self.context_norm(context)
 
@@ -110,9 +109,7 @@ class CrossAttention(nn.Module):
         # query / key similarity
 
         sim = einsum('b h i d, b j d -> b h i j', q, k)
-
-        # attention
-        sim = sim.masked_fill(attn_mask == 0, float('-inf'))
+        # sim = sim.masked_fill(attn_mask == 0, float('-inf')) # temporarily don't use
 
         sim = sim - sim.amax(dim=-1, keepdim=True)
         attn = sim.softmax(dim=-1)
@@ -137,15 +134,13 @@ class CrossAttention(nn.Module):
 class AttentionalPooler(nn.Module):
     def __init__(self, dim, context_dim, seq_len, heads, dim_head, depth=1, proj_dim=None):
         super().__init__()
-        self.pos_encoding = nn.Parameter(torch.randn(1, seq_len + 1, dim))
-
-        self.cls_token = nn.Parameter(torch.randn(dim))
+        self.pos_encoding = nn.Parameter(torch.randn(1, seq_len, dim))
 
         self.queries = nn.ParameterList([])
         self.layers = nn.ModuleList([])
         for _ in range(depth):
             self.queries.append(
-                nn.Parameter(torch.randn(seq_len + 1, dim)),
+                nn.Parameter(torch.randn(seq_len, dim)),
             )
             self.layers.append(nn.ModuleList([
                 CrossAttention(dim=dim, context_dim=dim, dim_head=dim_head, heads=heads, norm_context=True),
@@ -159,17 +154,15 @@ class AttentionalPooler(nn.Module):
         )
 
     def forward(self, x, zero_masks):
-        cls_tokens = repeat(self.cls_token, 'd -> b 1 d', b=x.shape[0])
+        x = x.type(torch.float32)
 
-        # prepend CLS token
-        x = torch.cat((cls_tokens, x), dim=-2)
-        zero_masks = torch.cat((torch.ones(x.shape[0], 1).to(x.device), zero_masks), dim=-1)
-
+        attn_mask = None # Temporarily don't use masking
+        '''
         # create attn mask
         attn_mask = repeat(zero_masks, 'b s -> b r s', r=zero_masks.shape[-1])
         attn_mask = torch.tril(attn_mask)
-        attn_mask[:, 0] = zero_masks # cls token masks should attend to all but zero_pads irregardless of position
         attn_mask = attn_mask.view(x.shape[0], 1, zero_masks.shape[-1], zero_masks.shape[-1])
+        '''
         
         x += self.pos_encoding
 
@@ -178,7 +171,7 @@ class AttentionalPooler(nn.Module):
             img_queries = pool(img_queries, x, attn_mask)
             img_queries = norm(img_queries)
         
-        video_embedding = img_queries[:, 0]
+        video_embedding = torch.mean(img_queries, 1)
         pred = video_embedding
         if self.proj is not None:
             pred = self.proj(video_embedding)
