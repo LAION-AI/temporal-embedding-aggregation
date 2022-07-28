@@ -137,7 +137,7 @@ class CrossAttention(nn.Module):
 class AttentionalPooler(nn.Module):
     def __init__(self, dim, context_dim, seq_len, heads, dim_head, depth=1, proj_dim=None):
         super().__init__()
-        self.pos_encoding = PositionalEncoding(dim)
+        self.pos_encoding = PositionalEncoding(dim, seq_len)
         self.cls_token = nn.Parameter(torch.randn(dim))
 
         self.queries = nn.ParameterList([])
