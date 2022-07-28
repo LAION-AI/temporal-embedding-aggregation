@@ -9,7 +9,8 @@ import torch.utils.tensorboard as tensorboard
 
 
 # TODO: better way of getting models:
-from aggregation.transformer import AttentionalPooler
+# from aggregation.transformer import AttentionalPooler
+from aggregation.transformer2 import AttentionalPooler
 
 from training.data import get_data
 from training.logger import setup_logging
