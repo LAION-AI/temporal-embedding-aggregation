@@ -168,10 +168,11 @@ class AttentionalPooler(nn.Module):
 
         for i, (pool, norm) in enumerate(self.layers):
             img_queries = repeat(self.queries[i], 'n d -> b n d', b=x.shape[0])
-            img_queries = pool(img_queries, x, attn_mask)
-            img_queries = norm(img_queries)
+            pooled = pool(img_queries, x, attn_mask)
+            pooled = norm(pooled)
+            x = pooled
         
-        video_embedding = torch.mean(img_queries, 1)
+        video_embedding = torch.mean(x, 1)
         pred = video_embedding
         if self.proj is not None:
             pred = self.proj(video_embedding)
