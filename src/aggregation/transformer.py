@@ -171,7 +171,6 @@ class AttentionalPooler(nn.Module):
             img_queries = pool(img_queries, x, attn_mask)
             img_queries = norm(img_queries)
         
-        # video_embedding = img_queries[:, 0]
         video_embedding = torch.mean(img_queries, 1)
         pred = video_embedding
         if self.proj is not None:
