@@ -74,6 +74,9 @@ def parse_args():
     parser.add_argument(
         "--depth", type=int, default=1, help="Number of layers for attentional pooler"
     )
+    parser.add_argument(
+        "--dropout", type=float, default=0.0, help="Dropout for attentional pooler"
+    )
 
     # Optimizer
     parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate.")

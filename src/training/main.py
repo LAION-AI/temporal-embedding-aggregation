@@ -43,6 +43,7 @@ def main():
             f"b_{args.batch_size}",
             f"j_{args.workers}",
             f"depth_{args.depth}",
+            f"dropout_{args.dropout}",
         ])
 
     # Set up logging:
@@ -84,6 +85,7 @@ def main():
         dim_head=64,
         depth=args.depth,
         proj_dim=700, # kinetics700
+        dropout=args.dropout,
     ).to(args.device)
 
     if args.train_data:

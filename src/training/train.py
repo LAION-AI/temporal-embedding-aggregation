@@ -56,6 +56,7 @@ def train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer):
 
 def evaluate(model, data, epoch, args, writer):
     dataloader = data["val"]
+    model.eval()
     # Get all kinetics700 lables
     with open("training/k700_labels.txt") as f:
         all_labels = f.read().splitlines()
