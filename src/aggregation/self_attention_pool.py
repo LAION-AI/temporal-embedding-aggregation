@@ -75,7 +75,7 @@ class Attention(nn.Module):
         out = rearrange(out, 'b h n d -> b n (h d)')
         return self.to_out(out)
 
-class AttentionalPooler(nn.Module):
+class SelfAttentionalPooler(nn.Module):
     def __init__(self, dim, context_dim, seq_len, heads, dim_head, depth=1, mlp_dim=512, proj_dim=None, dropout = 0.):
         super().__init__()
         self.pos_encoding = nn.Parameter(torch.randn(1, seq_len, dim))
@@ -88,7 +88,7 @@ class AttentionalPooler(nn.Module):
 
         self.mlp_head = nn.Sequential(
             nn.LayerNorm(dim),
-            nn.Linear(dim, 700)
+            nn.Linear(dim, 700) # TODO: make not hard coded
         )
 
     def forward(self, x, masks):

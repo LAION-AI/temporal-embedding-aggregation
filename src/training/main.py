@@ -9,8 +9,7 @@ import torch.utils.tensorboard as tensorboard
 
 
 # TODO: better way of getting models:
-# from aggregation.transformer import AttentionalPooler
-from aggregation.transformer2 import AttentionalPooler
+from aggregation.self_attention_pool import SelfAttentionalPooler
 
 from training.data import get_data
 from training.logger import setup_logging
@@ -77,7 +76,7 @@ def main():
     random_seed(args.seed)
     # TODO: make more systematic way of initializing model:
     # TODO: define some model config from yaml or json or whatever
-    model = AttentionalPooler(
+    model = SelfAttentionalPooler(
         dim=DIM,
         context_dim=DIM,
         seq_len=args.sequence_length,
