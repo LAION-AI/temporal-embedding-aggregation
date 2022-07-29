@@ -9,7 +9,7 @@ import torch.utils.tensorboard as tensorboard
 
 
 # TODO: better way of getting models:
-from aggregation.transformer import AttentionalPooler
+from aggregation.self_attention_pool import SelfAttentionalPooler
 
 from training.data import get_data
 from training.logger import setup_logging
@@ -42,6 +42,7 @@ def main():
             f"b_{args.batch_size}",
             f"j_{args.workers}",
             f"depth_{args.depth}",
+            f"dropout_{args.dropout}",
         ])
 
     # Set up logging:
@@ -75,7 +76,7 @@ def main():
     random_seed(args.seed)
     # TODO: make more systematic way of initializing model:
     # TODO: define some model config from yaml or json or whatever
-    model = AttentionalPooler(
+    model = SelfAttentionalPooler(
         dim=DIM,
         context_dim=DIM,
         seq_len=args.sequence_length,
@@ -83,6 +84,7 @@ def main():
         dim_head=64,
         depth=args.depth,
         proj_dim=700, # kinetics700
+        dropout=args.dropout,
     ).to(args.device)
 
     if args.train_data:
