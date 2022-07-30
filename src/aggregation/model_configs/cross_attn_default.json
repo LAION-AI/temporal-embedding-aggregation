@@ -1,5 +1,5 @@
 {
-        "type": "SelfAttentionalPooler",
+        "type": "CrossAttentionalPooler",
         "args": {
                 "dim": 512,
                 "context_dim": 512,
@@ -7,8 +7,6 @@
                 "heads": 8,
                 "dim_head": 64,
                 "depth": 1,
-                "mlp_dim": 512,
-                "proj_dim": 700,
-                "dropout": 0.0
+                "proj_dim": 700
         }
 }

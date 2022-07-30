@@ -88,7 +88,7 @@ class SelfAttentionalPooler(nn.Module):
 
         self.mlp_head = nn.Sequential(
             nn.LayerNorm(dim),
-            nn.Linear(dim, 700) # TODO: make not hard coded
+            nn.Linear(dim, proj_dim) # TODO: make not hard coded
         )
 
     def forward(self, x, masks):
