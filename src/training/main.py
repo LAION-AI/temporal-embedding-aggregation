@@ -8,9 +8,7 @@ import torch
 import torch.utils.tensorboard as tensorboard
 
 
-# TODO: better way of getting models:
-from aggregation.self_attention_pool import SelfAttentionalPooler
-
+from aggregation.factory import create_model
 from training.data import get_data
 from training.logger import setup_logging
 from training.params import parse_args
@@ -24,25 +22,18 @@ def random_seed(seed=42, rank=0):
     random.seed(seed + rank)
 
 
-DIM = 512 # for now this is constant
-
-
 def main():
     args = parse_args()
 
-    # TODO: model from params
-    args.model = "attentionalpooling"
-
+    conf_name = args.model.split("/")[-1][:-5]
     # get the name of the experiments
     if args.name is None:
         args.name = '-'.join([
             datetime.now().strftime("%Y_%m_%d-%H_%M_%S"),
-            f"model_{args.model}",
+            f"model_{conf_name}",
             f"lr_{args.lr}",
             f"b_{args.batch_size}",
             f"j_{args.workers}",
-            f"depth_{args.depth}",
-            f"dropout_{args.dropout}",
         ])
 
     # Set up logging:
@@ -74,18 +65,8 @@ def main():
 
     # Create model:
     random_seed(args.seed)
-    # TODO: make more systematic way of initializing model:
-    # TODO: define some model config from yaml or json or whatever
-    model = SelfAttentionalPooler(
-        dim=DIM,
-        context_dim=DIM,
-        seq_len=args.sequence_length,
-        heads=8,
-        dim_head=64,
-        depth=args.depth,
-        proj_dim=700, # kinetics700
-        dropout=args.dropout,
-    ).to(args.device)
+    model, model_str = create_model(args.model)
+    model = model.to(args.device)
 
     if args.train_data:
         # Create optimizer:

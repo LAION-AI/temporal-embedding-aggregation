@@ -70,12 +70,11 @@ def parse_args():
     )
 
     # Model:
-    # TODO: substitute this for some model config system
     parser.add_argument(
-        "--depth", type=int, default=1, help="Number of layers for attentional pooler"
-    )
-    parser.add_argument(
-        "--dropout", type=float, default=0.0, help="Dropout for attentional pooler"
+        "--model",
+        default="aggregation/model_configs/self_attn_default.json",
+        type=str,
+        help="path to valid model config",
     )
 
     # Optimizer
