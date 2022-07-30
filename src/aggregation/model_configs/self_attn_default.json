@@ -1,0 +1,6 @@
+{
+        "type": "SelfAttentionPooler",
+        "args": {
+                "dim": 512,
+        },
+}
