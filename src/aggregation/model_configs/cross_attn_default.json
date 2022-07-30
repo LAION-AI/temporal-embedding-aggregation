@@ -1,0 +1,12 @@
+{
+        "type": "CrossAttentionalPooler",
+        "args": {
+                "dim": 512,
+                "context_dim": 512,
+                "seq_len": 25,
+                "heads": 8,
+                "dim_head": 64,
+                "depth": 1,
+                "proj_dim": 700
+        }
+}
