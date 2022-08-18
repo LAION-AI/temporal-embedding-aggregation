@@ -13,9 +13,6 @@ def train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer):
     loss_func = nn.CrossEntropyLoss() # right now only CLIP-Kinetics700
 
     dataloader = data["train"]
-    # Get all kinetics700 lables
-    with open("training/k700_labels.txt") as f:
-        all_labels = f.read().splitlines()
 
     running_loss = 0.0
     for  i, batch in enumerate(dataloader):
@@ -24,7 +21,6 @@ def train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer):
 
         embeddings = batch["embeddings"].to(args.device)
         zero_masks = batch["zero_mask"].to(args.device)
-        labs = torch.Tensor([all_labels.index(l) for l in batch["text"]]).long().to(args.device)
 
         optimizer.zero_grad()
 
@@ -57,9 +53,6 @@ def train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer):
 def evaluate(model, data, epoch, args, writer):
     dataloader = data["val"]
     model.eval()
-    # Get all kinetics700 lables
-    with open("training/k700_labels.txt") as f:
-        all_labels = f.read().splitlines()
 
     metrics = {
         "top1": 0.0,
@@ -72,7 +65,6 @@ def evaluate(model, data, epoch, args, writer):
 
             embeddings = batch["embeddings"].to(args.device)
             zero_masks = batch["zero_mask"].to(args.device)
-            labs = torch.Tensor([all_labels.index(l) for l in batch["text"]])
 
             pred = model(embeddings, zero_masks).cpu()
             top5 = pred.topk(5, dim=-1).indices
