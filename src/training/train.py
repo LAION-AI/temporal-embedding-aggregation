@@ -2,17 +2,27 @@
 import logging
 
 import torch
+import numpy as np
 
 from torch import nn
+from training.loss import ClipLoss
 
 
-def train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer):
+def train_one_epoch(model_video, model_text, data, epoch, optimizer, scheduler, args, writer):
 
     num_batches_per_epoch = args.train_num_samples // args.batch_size
-    model.train()
-    loss_func = nn.CrossEntropyLoss() # right now only CLIP-Kinetics700
-
+    model_video.train()
+    loss_func = ClipLoss(
+        local_loss=False,
+        gather_with_grad=False,
+        cache_labels=True,
+        rank=0,
+        world_size=1,
+        use_horovod=False,
+    )
     dataloader = data["train"]
+
+    fake_logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07)) # TODO: figure this out
 
     running_loss = 0.0
     for  i, batch in enumerate(dataloader):
@@ -21,15 +31,19 @@ def train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer):
 
         embeddings = batch["embeddings"].to(args.device)
         zero_masks = batch["zero_mask"].to(args.device)
+        toks = batch["text_tokens"].to(args.device)
 
         optimizer.zero_grad()
 
-        pred = model(embeddings, zero_masks)
-        loss = loss_func(pred, labs)
+        video_embeddings = model_video(embeddings, zero_masks)
+        with torch.no_grad():
+            text_embeddings = model_text(toks).float()
+
+        loss = loss_func(video_embeddings, text_embeddings, fake_logit_scale)
         running_loss += loss.item() # maybe this doesn't make sense
 
         loss.backward()
-        nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip) # clip grads
+        nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
         optimizer.step()
 
         batch_count = i + 1
@@ -50,14 +64,23 @@ def train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer):
             running_loss = 0.0
 
 
-def evaluate(model, data, epoch, args, writer):
+def evaluate(model_video, model_text, data, epoch, args, writer):
     dataloader = data["val"]
-    model.eval()
+    model_video.eval()
 
     metrics = {
-        "top1": 0.0,
-        "top5": 0.0,
+        "loss": 0.0
     }
+
+    loss_func = ClipLoss(
+        local_loss=False,
+        gather_with_grad=False,
+        cache_labels=True,
+        rank=0,
+        world_size=1,
+        use_horovod=False,
+    )
+    fake_logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07)) # TODO: figure this out
 
     count = 0.0
     with torch.no_grad():
@@ -65,17 +88,17 @@ def evaluate(model, data, epoch, args, writer):
 
             embeddings = batch["embeddings"].to(args.device)
             zero_masks = batch["zero_mask"].to(args.device)
+            toks = batch["text_tokens"].to(args.device)
 
-            pred = model(embeddings, zero_masks).cpu()
-            top5 = pred.topk(5, dim=-1).indices
+            video_embeddings = model_video(embeddings, zero_masks).cpu()
+            text_embeddings = model_text(toks).float()
+            loss = loss_func(video_embeddings, text_embeddings, fake_logit_scale)
 
             count += len(labs)
-            metrics["top1"] += (top5[:, 0] == labs).sum()
-            for i in range(len(labs)):
-                metrics["top5"] += labs[i] in top5[i]
+            metrics["loss"] += loss.item()
 
-    for key in metrics: # turn into accuracy
-        metrics[key] /= count
+    for metric in metrics:
+        metrics[metric] /= count
 
     for name, val in metrics.items():
         writer.add_scalar(name, val, epoch)
