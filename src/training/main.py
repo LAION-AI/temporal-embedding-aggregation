@@ -79,6 +79,7 @@ def main():
 
     clip_model, preprocess = clip.load("ViT-B/32", device=args.device)
     model_text = CLIPTxt(clip_model)
+    logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
     if args.train_data:
         # Create optimizer:
@@ -121,11 +122,11 @@ def main():
 
     for epoch in range(start_epoch, args.epochs):
         logging.info(f'Start epoch {epoch}')
-        train_one_epoch(model_video, model_text, data, epoch, optimizer, scheduler, args, writer)
+        train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer, scheduler, args, writer)
         completed_epoch = epoch + 1
 
         if 'val' in data:
-            evaluate(model_video, model_text, data, epoch, args, writer)
+            evaluate(model_video, model_text, logit_scale, data, epoch, args, writer)
 
         # Save checkpoint
         checkpoint_dict = {

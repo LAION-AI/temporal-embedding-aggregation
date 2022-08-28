@@ -8,7 +8,7 @@ from torch import nn
 from training.loss import ClipLoss
 
 
-def train_one_epoch(model_video, model_text, data, epoch, optimizer, scheduler, args, writer):
+def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer, scheduler, args, writer):
 
     num_batches_per_epoch = args.train_num_samples // args.batch_size
     model_video.train()
@@ -21,8 +21,6 @@ def train_one_epoch(model_video, model_text, data, epoch, optimizer, scheduler, 
         use_horovod=False,
     )
     dataloader = data["train"]
-
-    fake_logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07)) # TODO: figure this out
 
     running_loss = 0.0
     for  i, batch in enumerate(dataloader):
@@ -39,7 +37,7 @@ def train_one_epoch(model_video, model_text, data, epoch, optimizer, scheduler, 
         with torch.no_grad():
             text_embeddings = model_text(toks).float()
 
-        loss = loss_func(video_embeddings, text_embeddings, fake_logit_scale)
+        loss = loss_func(video_embeddings, text_embeddings, logit_scale.exp())
         running_loss += loss.item() # maybe this doesn't make sense
 
         loss.backward()
@@ -64,7 +62,7 @@ def train_one_epoch(model_video, model_text, data, epoch, optimizer, scheduler, 
             running_loss = 0.0
 
 
-def evaluate(model_video, model_text, data, epoch, args, writer):
+def evaluate(model_video, model_text, logit_scale, data, epoch, args, writer):
     dataloader = data["val"]
     model_video.eval()
 
@@ -80,7 +78,6 @@ def evaluate(model_video, model_text, data, epoch, args, writer):
         world_size=1,
         use_horovod=False,
     )
-    fake_logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07)) # TODO: figure this out
 
     count = 0.0
     with torch.no_grad():
@@ -92,7 +89,7 @@ def evaluate(model_video, model_text, data, epoch, args, writer):
 
             video_embeddings = model_video(embeddings, zero_masks).cpu()
             text_embeddings = model_text(toks).float()
-            loss = loss_func(video_embeddings, text_embeddings, fake_logit_scale)
+            loss = loss_func(video_embeddings, text_embeddings, logit_scale.exp())
 
             count += len(labs)
             metrics["loss"] += loss.item()
