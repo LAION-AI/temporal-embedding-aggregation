@@ -53,7 +53,7 @@ def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer
             )
 
             log_data = {
-                "loss": running_loss/100.0,
+                "train_loss": running_loss/100.0,
                 "lr": optimizer.param_groups[0]["lr"],
             }
             for name, val in log_data.items():
@@ -67,7 +67,7 @@ def evaluate(model_video, model_text, logit_scale, data, epoch, args, writer):
     model_video.eval()
 
     metrics = {
-        "loss": 0.0
+        "val_loss": 0.0
     }
 
     loss_func = ClipLoss(
@@ -80,6 +80,7 @@ def evaluate(model_video, model_text, logit_scale, data, epoch, args, writer):
     )
 
     count = 0.0
+    all_video_features, all_text_features = [], []
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
 
@@ -87,21 +88,49 @@ def evaluate(model_video, model_text, logit_scale, data, epoch, args, writer):
             zero_masks = batch["zero_mask"].to(args.device)
             toks = batch["text_tokens"].to(args.device)
 
-            video_embeddings = model_video(embeddings, zero_masks).cpu()
+            video_embeddings = model_video(embeddings, zero_masks)
             text_embeddings = model_text(toks).float()
+
+            all_video_features.append(video_embeddings.cpu())
+            all_text_features.append(text_embeddings.cpu())
             loss = loss_func(video_embeddings, text_embeddings, logit_scale.exp())
 
-            count += len(labs)
-            metrics["loss"] += loss.item()
+            count += 1
+            metrics["val_loss"] += loss.item()
 
-    for metric in metrics:
-        metrics[metric] /= count
+        val_metrics = get_metrics(
+            video_features=torch.cat(all_video_features),
+            text_features=torch.cat(all_text_features),
+            logit_scale=logit_scale.cpu(),
+        )
+        metrics.update(**val_metrics)
+
+    metrics["val_loss"] /= count
 
     for name, val in metrics.items():
         writer.add_scalar(name, val, epoch)
 
     logging.info(
         f"Eval epoch: {epoch} | "
-        f"top1 accuracy: {metrics['top1']} "
-        f"top5 accuracy: {metrics['top5']} "
+        f"loss : {metrics['val_loss']} "
     )
+
+
+def get_metrics(video_features, text_features, logit_scale):
+    metrics = {}
+    logits_per_video = (logit_scale * video_features @ text_features.t()).detach().cpu()
+    logits_per_text = logits_per_video.t().detach().cpu()
+
+    logits = {"video_to_text": logits_per_video, "text_to_video": logits_per_text}
+    ground_truth = torch.arange(len(text_features)).view(-1, 1)
+
+    for name, logit in logits.items():
+        ranking = torch.argsort(logit, descending=True)
+        preds = torch.where(ranking == ground_truth)[1]
+        preds = preds.detach().cpu().numpy()
+        metrics[f"{name}_mean_rank"] = preds.mean() + 1
+        metrics[f"{name}_median_rank"] = np.floor(np.median(preds)) + 1
+        for k in [1, 5, 10]:
+            metrics[f"{name}_R@{k}"] = np.mean(preds < k)
+
+    return metrics
