@@ -12,6 +12,7 @@ import torch.utils.tensorboard as tensorboard
 
 from aggregation.factory import create_model
 from training.data import get_data
+from training.distributed import is_master, init_distributed_device, world_info_from_dev
 from training.logger import setup_logging
 from training.params import parse_args
 from training.scheduler import cosine_lr
@@ -46,30 +47,53 @@ def main():
             f"j_{args.workers}",
         ])
 
+    # Device:
+    # discover initial world args early so we can log properly
+    args.distributed = False
+    args.local_rank, args.rank, args.world_size = world_info_from_env()
+
     # Set up logging:
-    log_base_path = os.path.join(args.logs, args.name)
-    os.makedirs(log_base_path, exist_ok=True)
-    log_filename = "out.log"
-    args.log_path = os.path.join(log_base_path, log_filename)
-    if os.path.exists(args.log_path):
-        print(
-            "Error. Experiment already exists. Use --name {} to specify a new experiment."
-        )
-        return -1
+    if is_master(args, local=args.log_local):
+        log_base_path = os.path.join(args.logs, args.name)
+        os.makedirs(log_base_path, exist_ok=True)
+        log_filename = "out.log"
+        args.log_path = os.path.join(log_base_path, log_filename)
+        if os.path.exists(args.log_path):
+            print(
+                "Error. Experiment already exists. Use --name {} to specify a new experiment."
+            )
+            return -1
 
-    args.log_level = logging.DEBUG if args.debug else logging.INFO
-    setup_logging(args.log_path, args.log_level)
+        args.log_level = logging.DEBUG if args.debug else logging.INFO
+        setup_logging(args.log_path, args.log_level)
 
-    args.tensorboard_path = os.path.join(args.logs, args.name, "tensorboard")
-    args.checkpoint_path = os.path.join(args.logs, args.name, "checkpoints")
-    for dirname in [args.tensorboard_path, args.checkpoint_path]:
-        os.makedirs(dirname, exist_ok=True)
+    # fully initialize distributed device environment
+    torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.deterministic = False
+    device = init_distributed_device(args)
+
+    if is_master(args):
+        args.tensorboard_path = os.path.join(args.logs, args.name, "tensorboard")
+        args.checkpoint_path = os.path.join(args.logs, args.name, "checkpoints")
+        for dirname in [args.tensorboard_path, args.checkpoint_path]:
+            os.makedirs(dirname, exist_ok=True)
+    else:
+        args.tensorboard_path = ''
+        args.checkpoint_path = ''
+
+   if args.horovod:
+        logging.info(
+            f'Running in horovod mode with multiple processes / nodes. Device: {args.device}.'
+            f'Process (global: {args.rank}, local {args.local_rank}), total {args.world_size}.')
+    elif args.distributed:
+        logging.info(
+            f'Running in distributed mode with multiple processes. Device: {args.device}.'
+            f'Process (global: {args.rank}, local {args.local_rank}), total {args.world_size}.')
+    else:
+        logging.info(f'Running with a single process. Device {args.device}.')
 
     # Get data:
     data = get_data(args)
-
-    # Device:
-    args.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # Create model:
     random_seed(args.seed)
@@ -79,6 +103,10 @@ def main():
     clip_model, preprocess = clip.load("ViT-B/32", device=args.device)
     model_text = CLIPTxt(clip_model)
     logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+
+	# Make model distributed
+	if args.distributed and not args.horovod:
+		model_video = torch.nn.parallel.DistributedDataParallel(model_video, device_ids=[device])
 
     if args.train_data:
         # Create optimizer:
@@ -96,9 +124,9 @@ def main():
 
     # Writing:
     writer = None
-    if args.report_to == "tensorboard":
+    if args.report_to == "tensorboard" and is_master(args):
         writer = tensorboard.SummaryWriter(args.tensorboard_path)
-    elif args.report_to == "wandb":
+    elif args.report_to == "wandb" and is_master(args):
         logging.debug("Starting wandb.")
         wandb.init(
             project="video-clip",
@@ -133,9 +161,9 @@ def main():
             logging.info(f"=> no checkpoint found at '{args.resume}'")
 
 
-
     for epoch in range(start_epoch, args.epochs):
-        logging.info(f'Start epoch {epoch}')
+		if is_master(args):
+			logging.info(f'Start epoch {epoch}')
         train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer, scheduler, args, writer)
         completed_epoch = epoch + 1
 
@@ -161,6 +189,9 @@ def main():
                 checkpoint_dict,
                 os.path.join(args.checkpoint_path, f"epoch_latest.pt"),
             )
+
+	if args.report_to == "wandb" and is_master(args):
+		wandb.finish()
 
 
 if __name__ == "__main__":
