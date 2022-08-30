@@ -1,5 +1,6 @@
 """training code"""
 import logging
+import wandb
 
 import torch
 import numpy as np
@@ -61,9 +62,7 @@ def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer
                 if tb_writer is not None:
                     tb_writer.add_scalar(name, val, step)
                 if args.report_to == "wandb":
-                    # TODO:implement this
-                    print("SHOULD BE LOGGING TO WANDB")
-                    pass
+                    wandb.log({name: val, 'step': step})
 
             running_loss = 0.0
 
@@ -118,7 +117,7 @@ def evaluate(model_video, model_text, logit_scale, data, epoch, args, tb_writer=
         if tb_writer is not None:
             tb_writer.add_scalar(name, val, epoch)
         if args.report_to == "wandb":
-            print("SHOULD BE WRITING TO WANDB")
+            wandb.log({name: val, 'epoch': epoch})
 
     logging.info(
         f"Eval epoch: {epoch} | "
