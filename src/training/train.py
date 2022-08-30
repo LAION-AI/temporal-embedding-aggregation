@@ -7,6 +7,7 @@ import numpy as np
 
 from torch import nn
 from training.loss import ClipLoss
+from .distributed import is_master
 
 
 def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer, scheduler, args, tb_writer=None):
@@ -46,7 +47,7 @@ def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer
         optimizer.step()
 
         batch_count = i + 1
-        if batch_count % 100 == 0 or batch == num_batches_per_epoch:
+        if is_master(args) and (batch_count % 100 == 0 or batch == num_batches_per_epoch):
             logging.info(
                 f"Train Epoch: {epoch} [{batch_count}/{num_batches_per_epoch} ({((batch_count/num_batches_per_epoch) * 100.0):.2f}%)] "
                 f"Loss: {running_loss/100.0} "
@@ -68,13 +69,14 @@ def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer
 
 
 def evaluate(model_video, model_text, logit_scale, data, epoch, args, tb_writer=None):
+    metrics = {}
+    if not is_master(args):
+        return metrics
+    device = torch.device(args.device)
     dataloader = data["val"]
     model_video.eval()
 
-    metrics = {
-        "val_loss": 0.0
-    }
-
+    metrics["val_loss"] = 0.0
     loss_func = ClipLoss(
         local_loss=False,
         gather_with_grad=False,
@@ -89,9 +91,9 @@ def evaluate(model_video, model_text, logit_scale, data, epoch, args, tb_writer=
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
 
-            embeddings = batch["embeddings"].to(args.device)
-            zero_masks = batch["zero_mask"].to(args.device)
-            toks = batch["text_tokens"].to(args.device)
+            embeddings = batch["embeddings"].to(device)
+            zero_masks = batch["zero_mask"].to(device)
+            toks = batch["text_tokens"].to(device)
 
             video_embeddings = model_video(embeddings, zero_masks)
             text_embeddings = model_text(toks).float()
@@ -119,10 +121,11 @@ def evaluate(model_video, model_text, logit_scale, data, epoch, args, tb_writer=
         if args.report_to == "wandb":
             wandb.log({name: val, 'epoch': epoch})
 
-    logging.info(
-        f"Eval epoch: {epoch} | "
-        f"loss : {metrics['val_loss']} "
-    )
+    if is_master(args):
+        logging.info(
+            f"Eval epoch: {epoch} | "
+            f"loss : {metrics['val_loss']} "
+        )
 
 
 def get_metrics(video_features, text_features, logit_scale):
