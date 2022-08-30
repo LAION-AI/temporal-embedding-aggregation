@@ -1,5 +1,6 @@
 """training code"""
 import logging
+import wandb
 
 import torch
 import numpy as np
@@ -8,7 +9,7 @@ from torch import nn
 from training.loss import ClipLoss
 
 
-def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer, scheduler, args, writer):
+def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer, scheduler, args, tb_writer=None):
 
     num_batches_per_epoch = args.train_num_samples // args.batch_size
     model_video.train()
@@ -57,12 +58,16 @@ def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer
                 "lr": optimizer.param_groups[0]["lr"],
             }
             for name, val in log_data.items():
-                writer.add_scalar(name, val, step + 1)
+                name = "train/" + name
+                if tb_writer is not None:
+                    tb_writer.add_scalar(name, val, step)
+                if args.report_to == "wandb":
+                    wandb.log({name: val, 'step': step})
 
             running_loss = 0.0
 
 
-def evaluate(model_video, model_text, logit_scale, data, epoch, args, writer):
+def evaluate(model_video, model_text, logit_scale, data, epoch, args, tb_writer=None):
     dataloader = data["val"]
     model_video.eval()
 
@@ -108,7 +113,11 @@ def evaluate(model_video, model_text, logit_scale, data, epoch, args, writer):
     metrics["val_loss"] /= count
 
     for name, val in metrics.items():
-        writer.add_scalar(name, val, epoch)
+        name = "val/" + name
+        if tb_writer is not None:
+            tb_writer.add_scalar(name, val, epoch)
+        if args.report_to == "wandb":
+            wandb.log({name: val, 'epoch': epoch})
 
     logging.info(
         f"Eval epoch: {epoch} | "

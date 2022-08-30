@@ -1,13 +1,14 @@
 import logging
 import os
 import random
+import wandb
+
 from datetime import datetime
 
 import clip
 import numpy as np
 import torch
 import torch.utils.tensorboard as tensorboard
-
 
 from aggregation.factory import create_model
 from training.data import get_data
@@ -64,8 +65,6 @@ def main():
     for dirname in [args.tensorboard_path, args.checkpoint_path]:
         os.makedirs(dirname, exist_ok=True)
 
-    writer = tensorboard.SummaryWriter(args.tensorboard_path)
-
     # Get data:
     data = get_data(args)
 
@@ -94,6 +93,21 @@ def main():
         # Create scheduler:
         total_steps = (args.train_num_samples // args.batch_size) * args.epochs
         scheduler = cosine_lr(optimizer, args.lr, args.warmup, total_steps)
+
+    # Writing:
+    writer = None
+    if args.report_to == "tensorboard":
+        writer = tensorboard.SummaryWriter(args.tensorboard_path)
+    elif args.report_to == "wandb":
+        logging.debug("Starting wandb.")
+        wandb.init(
+            project="video-clip",
+            entity="iejmac", #TODO: do you need this?
+            name=args.name,
+            config=vars(args),
+        )
+        if args.debug: # TODO test this out
+            wandb.watch(model_video, log='all')
 
     # Resume from checkpoint
     start_epoch = 0
@@ -147,7 +161,6 @@ def main():
                 checkpoint_dict,
                 os.path.join(args.checkpoint_path, f"epoch_latest.pt"),
             )
-
 
 
 if __name__ == "__main__":
