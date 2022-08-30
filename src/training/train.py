@@ -2,20 +2,25 @@
 import logging
 
 import torch
+import numpy as np
 
 from torch import nn
+from training.loss import ClipLoss
 
 
-def train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer):
+def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer, scheduler, args, writer):
 
     num_batches_per_epoch = args.train_num_samples // args.batch_size
-    model.train()
-    loss_func = nn.CrossEntropyLoss() # right now only CLIP-Kinetics700
-
+    model_video.train()
+    loss_func = ClipLoss(
+        local_loss=False,
+        gather_with_grad=False,
+        cache_labels=True,
+        rank=0,
+        world_size=1,
+        use_horovod=False,
+    )
     dataloader = data["train"]
-    # Get all kinetics700 lables
-    with open("training/k700_labels.txt") as f:
-        all_labels = f.read().splitlines()
 
     running_loss = 0.0
     for  i, batch in enumerate(dataloader):
@@ -24,16 +29,19 @@ def train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer):
 
         embeddings = batch["embeddings"].to(args.device)
         zero_masks = batch["zero_mask"].to(args.device)
-        labs = torch.Tensor([all_labels.index(l) for l in batch["text"]]).long().to(args.device)
+        toks = batch["text_tokens"].to(args.device)
 
         optimizer.zero_grad()
 
-        pred = model(embeddings, zero_masks)
-        loss = loss_func(pred, labs)
+        video_embeddings = model_video(embeddings, zero_masks)
+        with torch.no_grad():
+            text_embeddings = model_text(toks).float()
+
+        loss = loss_func(video_embeddings, text_embeddings, logit_scale.exp())
         running_loss += loss.item() # maybe this doesn't make sense
 
         loss.backward()
-        nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip) # clip grads
+        nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
         optimizer.step()
 
         batch_count = i + 1
@@ -45,7 +53,7 @@ def train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer):
             )
 
             log_data = {
-                "loss": running_loss/100.0,
+                "train_loss": running_loss/100.0,
                 "lr": optimizer.param_groups[0]["lr"],
             }
             for name, val in log_data.items():
@@ -54,42 +62,75 @@ def train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer):
             running_loss = 0.0
 
 
-def evaluate(model, data, epoch, args, writer):
+def evaluate(model_video, model_text, logit_scale, data, epoch, args, writer):
     dataloader = data["val"]
-    model.eval()
-    # Get all kinetics700 lables
-    with open("training/k700_labels.txt") as f:
-        all_labels = f.read().splitlines()
+    model_video.eval()
 
     metrics = {
-        "top1": 0.0,
-        "top5": 0.0,
+        "val_loss": 0.0
     }
 
+    loss_func = ClipLoss(
+        local_loss=False,
+        gather_with_grad=False,
+        cache_labels=True,
+        rank=0,
+        world_size=1,
+        use_horovod=False,
+    )
+
     count = 0.0
+    all_video_features, all_text_features = [], []
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
 
             embeddings = batch["embeddings"].to(args.device)
             zero_masks = batch["zero_mask"].to(args.device)
-            labs = torch.Tensor([all_labels.index(l) for l in batch["text"]])
+            toks = batch["text_tokens"].to(args.device)
 
-            pred = model(embeddings, zero_masks).cpu()
-            top5 = pred.topk(5, dim=-1).indices
+            video_embeddings = model_video(embeddings, zero_masks)
+            text_embeddings = model_text(toks).float()
 
-            count += len(labs)
-            metrics["top1"] += (top5[:, 0] == labs).sum()
-            for i in range(len(labs)):
-                metrics["top5"] += labs[i] in top5[i]
+            all_video_features.append(video_embeddings.cpu())
+            all_text_features.append(text_embeddings.cpu())
+            loss = loss_func(video_embeddings, text_embeddings, logit_scale.exp())
 
-    for key in metrics: # turn into accuracy
-        metrics[key] /= count
+            count += 1
+            metrics["val_loss"] += loss.item()
+
+        val_metrics = get_metrics(
+            video_features=torch.cat(all_video_features),
+            text_features=torch.cat(all_text_features),
+            logit_scale=logit_scale.cpu(),
+        )
+        metrics.update(**val_metrics)
+
+    metrics["val_loss"] /= count
 
     for name, val in metrics.items():
         writer.add_scalar(name, val, epoch)
 
     logging.info(
         f"Eval epoch: {epoch} | "
-        f"top1 accuracy: {metrics['top1']} "
-        f"top5 accuracy: {metrics['top5']} "
+        f"loss : {metrics['val_loss']} "
     )
+
+
+def get_metrics(video_features, text_features, logit_scale):
+    metrics = {}
+    logits_per_video = (logit_scale * video_features @ text_features.t()).detach().cpu()
+    logits_per_text = logits_per_video.t().detach().cpu()
+
+    logits = {"video_to_text": logits_per_video, "text_to_video": logits_per_text}
+    ground_truth = torch.arange(len(text_features)).view(-1, 1)
+
+    for name, logit in logits.items():
+        ranking = torch.argsort(logit, descending=True)
+        preds = torch.where(ranking == ground_truth)[1]
+        preds = preds.detach().cpu().numpy()
+        metrics[f"{name}_mean_rank"] = preds.mean() + 1
+        metrics[f"{name}_median_rank"] = np.floor(np.median(preds)) + 1
+        for k in [1, 5, 10]:
+            metrics[f"{name}_R@{k}"] = np.mean(preds < k)
+
+    return metrics

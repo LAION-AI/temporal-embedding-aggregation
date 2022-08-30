@@ -76,7 +76,7 @@ class Attention(nn.Module):
         return self.to_out(out)
 
 class SelfAttentionalPooler(nn.Module):
-    def __init__(self, dim, context_dim, seq_len, heads, dim_head, depth=1, mlp_dim=512, proj_dim=None, dropout = 0.):
+    def __init__(self, dim, context_dim, seq_len, heads, dim_head, depth=1, mlp_dim=512, proj_dim=-1, dropout = 0.):
         super().__init__()
         self.pos_encoding = nn.Parameter(torch.randn(1, seq_len, dim))
         self.layers = nn.ModuleList([])
@@ -86,10 +86,13 @@ class SelfAttentionalPooler(nn.Module):
                 PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout))
             ]))
 
-        self.mlp_head = nn.Sequential(
-            nn.LayerNorm(dim),
-            nn.Linear(dim, proj_dim)
-        )
+        if proj_dim > 0:
+            self.mlp_head = nn.Sequential(
+                nn.LayerNorm(dim),
+                nn.Linear(dim, proj_dim)
+            )
+        else:
+            self.mlp_head = nn.Identity()
 
     def forward(self, x, masks):
         x = x.type(torch.float32)

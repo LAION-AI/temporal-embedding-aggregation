@@ -3,7 +3,7 @@
         "args": {
                 "dim": 512,
                 "context_dim": 512,
-                "seq_len": 25,
+                "seq_len": 180,
                 "heads": 8,
                 "dim_head": 64,
                 "depth": 1,

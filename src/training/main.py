@@ -3,6 +3,7 @@ import os
 import random
 from datetime import datetime
 
+import clip
 import numpy as np
 import torch
 import torch.utils.tensorboard as tensorboard
@@ -20,6 +21,14 @@ def random_seed(seed=42, rank=0):
     torch.manual_seed(seed + rank)
     np.random.seed(seed + rank)
     random.seed(seed + rank)
+
+
+class CLIPTxt(torch.nn.Module):
+    def __init__(self, clip):
+        super().__init__()
+        self.model = clip
+    def forward(self, x):
+        return self.model.encode_text(x)
 
 
 def main():
@@ -65,13 +74,17 @@ def main():
 
     # Create model:
     random_seed(args.seed)
-    model, model_str = create_model(args.model)
-    model = model.to(args.device)
+    model_video, model_str = create_model(args.model)
+    model_video.to(args.device)
+
+    clip_model, preprocess = clip.load("ViT-B/32", device=args.device)
+    model_text = CLIPTxt(clip_model)
+    logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
     if args.train_data:
         # Create optimizer:
         optimizer = torch.optim.AdamW(
-            model.parameters(),
+            model_video.parameters(),
             lr=args.lr,
             weight_decay=args.wd,
             betas=(args.beta1, args.beta2),
@@ -94,13 +107,13 @@ def main():
                 sd = checkpoint["state_dict"]
                 if next(iter(sd.items()))[0].startswith('module'):
                     sd = {k[len('module.'):]: v for k, v in sd.items()}
-                model.load_state_dict(sd)
+                model_video.load_state_dict(sd)
                 if optimizer is not None:
                     optimizer.load_state_dict(checkpoint["optimizer"])
                 logging.info(f"=> resuming checkpoint '{args.resume}' (epoch {start_epoch})")
             else:
                 # loading a bare (model only) checkpoint for fine-tune or evaluation
-                model.load_state_dict(checkpoint)
+                model_video.load_state_dict(checkpoint)
                 logging.info(f"=> loaded checkpoint '{args.resume}' (epoch {start_epoch})")
         else:
             logging.info(f"=> no checkpoint found at '{args.resume}'")
@@ -109,17 +122,17 @@ def main():
 
     for epoch in range(start_epoch, args.epochs):
         logging.info(f'Start epoch {epoch}')
-        train_one_epoch(model, data, epoch, optimizer, scheduler, args, writer)
+        train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer, scheduler, args, writer)
         completed_epoch = epoch + 1
 
         if 'val' in data:
-            evaluate(model, data, epoch, args, writer)
+            evaluate(model_video, model_text, logit_scale, data, epoch, args, writer)
 
         # Save checkpoint
         checkpoint_dict = {
             "epoch": completed_epoch,
             "name": args.name,
-            "state_dict": model.state_dict(),
+            "state_dict": model_video.state_dict(),
             "optimizer": optimizer.state_dict(),
         }               
         if completed_epoch == args.epochs or (
