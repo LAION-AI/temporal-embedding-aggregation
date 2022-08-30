@@ -9,4 +9,5 @@ python3.8 -m training.main \
     --batch-size 128 \
     --workers  6 \
     --epochs 20 \
+    --report-to "wandb" \
     --model "aggregation/model_configs/self_attn_default.json"

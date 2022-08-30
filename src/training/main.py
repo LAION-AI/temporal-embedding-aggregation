@@ -64,7 +64,12 @@ def main():
     for dirname in [args.tensorboard_path, args.checkpoint_path]:
         os.makedirs(dirname, exist_ok=True)
 
-    writer = tensorboard.SummaryWriter(args.tensorboard_path)
+    writer = None
+    if args.report_to == "tensorboard":
+        writer = tensorboard.SummaryWriter(args.tensorboard_path)
+    elif args.report_to == "wandb":
+        # init wandb
+        print("SHOULD BE INITIALIZING WANDB")
 
     # Get data:
     data = get_data(args)

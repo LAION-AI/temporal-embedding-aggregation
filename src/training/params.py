@@ -94,8 +94,14 @@ def parse_args():
         "--logs",
         type=str,
         default="./logs/",
-        help="Where to store tensorboard logs. Use None to avoid storing logs.",
+        help="Where to store logs. Use None to avoid storing logs.",
     ) 
+    parser.add_argument(
+        "--report-to",
+        type=str,
+        default="",
+        help="Log to 'tensorboard' or 'wandb'",
+    )
     parser.add_argument(
         "--name",
         type=str,
