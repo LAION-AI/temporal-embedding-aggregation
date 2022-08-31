@@ -68,6 +68,28 @@ def parse_args():
     parser.add_argument(
         "--seed", type=int, default=0, help="Default random seed."
     )
+    # distributed stuff
+    parser.add_argument(
+        "--horovod",
+        default=False,
+        action="store_true",
+        help="Use horovod for distributed training."
+    )
+    parser.add_argument(
+        "--dist-backend", default="nccl", type=str, help="distributed backend"
+    )
+    parser.add_argument(
+        "--dist-url",
+        default="env://",
+        type=str,
+        help="url used to set up distributed training",
+    )
+    parser.add_argument(
+        "--no-set-device-rank",
+        default=False,
+        action="store_true",
+        help="Don't set device index from local rank (when CUDA_VISIBLE_DEVICES restricted to one per proc)."
+    )
 
     # Model:
     parser.add_argument(

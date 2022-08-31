@@ -1,4 +1,4 @@
-from clip_video_encode.dataset import EmbeddingWebDatasetReader
+from .dataset_reader import EmbeddingWebDatasetReader
 
 def get_embedding_webdataset(urls, args):
     dl = EmbeddingWebDatasetReader(

@@ -10,9 +10,14 @@ import numpy as np
 import torch
 import torch.utils.tensorboard as tensorboard
 
+try:
+    import horovod.torch as hvd
+except ImportError:
+    hvd = None
+
 from aggregation.factory import create_model
-from training.data import get_data
-from training.distributed import is_master, init_distributed_device, world_info_from_dev
+from training.dataset_reader2 import get_data
+from training.distributed import is_master, init_distributed_device, world_info_from_env
 from training.logger import setup_logging
 from training.params import parse_args
 from training.scheduler import cosine_lr
@@ -81,7 +86,7 @@ def main():
         args.tensorboard_path = ''
         args.checkpoint_path = ''
 
-   if args.horovod:
+    if args.horovod:
         logging.info(
             f'Running in horovod mode with multiple processes / nodes. Device: {args.device}.'
             f'Process (global: {args.rank}, local {args.local_rank}), total {args.world_size}.')
@@ -93,7 +98,8 @@ def main():
         logging.info(f'Running with a single process. Device {args.device}.')
 
     # Get data:
-    data = get_data(args)
+    preprocess = (torch.nn.Identity(), torch.nn.Identity())
+    data = get_data(args, preprocess)
 
     # Create model:
     random_seed(args.seed)
@@ -104,9 +110,9 @@ def main():
     model_text = CLIPTxt(clip_model)
     logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
-	# Make model distributed
-	if args.distributed and not args.horovod:
-		model_video = torch.nn.parallel.DistributedDataParallel(model_video, device_ids=[device])
+    # Make model distributed
+    if args.distributed and not args.horovod:
+        model_video = torch.nn.parallel.DistributedDataParallel(model_video, device_ids=[device])
 
     if args.train_data:
         # Create optimizer:
@@ -162,8 +168,8 @@ def main():
 
 
     for epoch in range(start_epoch, args.epochs):
-		if is_master(args):
-			logging.info(f'Start epoch {epoch}')
+        if is_master(args):
+            logging.info(f'Start epoch {epoch}')
         train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer, scheduler, args, writer)
         completed_epoch = epoch + 1
 
@@ -190,8 +196,8 @@ def main():
                 os.path.join(args.checkpoint_path, f"epoch_latest.pt"),
             )
 
-	if args.report_to == "wandb" and is_master(args):
-		wandb.finish()
+    if args.report_to == "wandb" and is_master(args):
+        wandb.finish()
 
 
 if __name__ == "__main__":
