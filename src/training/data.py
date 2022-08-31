@@ -54,6 +54,7 @@ class DataInfo:
             self.sampler.set_epoch(epoch)
 
 
+# Preprocess/read funcs:
 def preprocess_txt(text):
     return tokenize([str(text)])[0]
 
@@ -65,15 +66,20 @@ def standardize_embedding_shape(emb, seq_len):
     zero_mask = np.concatenate([np.ones(len(emb)), np.zeros(len(pad))])
     padded_emb = np.concatenate([emb, pad])
     return padded_emb, zero_mask
-
-def preprocess_emb(npy_data):
-	standard_seq_len = 200 # TODO: this needs to be an arg somehow
+def preprocess_npy(npy_data):
 	stream = io.BytesIO(npy_data)
 	emb = np.lib.format.read_array(stream)
-	if standard_seq_len != -1:
-		emb, zero_mask = standardize_embedding_shape(emb, standard_seq_len) # TODO: nto using zero masks
-		emb = torch.from_numpy(emb)
 	return emb
+def get_preprocess_emb(postprocess_npy, standard_seq_len):
+    def preproc_emb(npy):
+        emb = preprocess_npy(npy)
+        emb = postprocess_npy(emb) # like if you want to remove a watermark embedding
+        if standard_seq_len != -1:
+            emb, zero_mask = standardize_embedding_shape(emb, standard_seq_len) # TODO: nto using zero masks
+        emb = torch.from_numpy(emb)
+        return emb
+    return preproc_emb
+        
 
 def get_dataset_size(shards):
     shards_list = list(braceexpand.braceexpand(shards))
@@ -240,7 +246,7 @@ class ResampledShards2(IterableDataset):
             yield dict(url=self.rng.choice(self.urls))
 
 
-def get_wds_dataset(args, preproc_emb, is_train, epoch=0, floor=False):
+def get_wds_dataset(args, emb_transform, is_train, epoch=0, floor=False):
     input_shards = args.train_data if is_train else args.val_data
     assert input_shards is not None
     resampled = getattr(args, 'dataset_resampled', False) and is_train
@@ -289,6 +295,8 @@ def get_wds_dataset(args, preproc_emb, is_train, epoch=0, floor=False):
             # at this point, we have an iterator over the shards assigned to each worker
             wds.tarfile_to_samples(handler=log_and_continue),
         ])
+
+    preprocess_emb = get_preprocess_emb(emb_transform, args.sequence_length)
     pipeline.extend([
         wds.select(filter_no_caption),
         wds.rename(embeddings="npy", text="txt"),
