@@ -16,7 +16,7 @@ except ImportError:
     hvd = None
 
 from aggregation.factory import create_model
-from training.dataset_reader2 import get_data
+from training.data import get_data
 from training.distributed import is_master, init_distributed_device, world_info_from_env
 from training.logger import setup_logging
 from training.params import parse_args

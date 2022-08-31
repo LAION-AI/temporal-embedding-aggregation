@@ -12,7 +12,6 @@ from .distributed import is_master
 
 def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer, scheduler, args, tb_writer=None):
     device = torch.device(args.device)
-    num_batches_per_epoch = args.train_num_samples // args.batch_size
     model_video.train()
     loss_func = ClipLoss(
         local_loss=False,
@@ -23,6 +22,7 @@ def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer
         use_horovod=False,
     )
     dataloader = data["train"].dataloader
+    num_batches_per_epoch = dataloader.num_batches
 
     running_loss = 0.0
     for  i, batch in enumerate(dataloader):
