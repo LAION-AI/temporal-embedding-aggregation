@@ -177,24 +177,25 @@ def main():
             evaluate(model_video, model_text, logit_scale, data, epoch, args, writer)
 
         # Save checkpoint
-        checkpoint_dict = {
-            "epoch": completed_epoch,
-            "name": args.name,
-            "state_dict": model_video.state_dict(),
-            "optimizer": optimizer.state_dict(),
-        }               
-        if completed_epoch == args.epochs or (
-            args.save_frequency > 0 and (completed_epoch % args.save_frequency) == 0
-        ):
-            torch.save(
-                checkpoint_dict,
-                os.path.join(args.checkpoint_path, f"epoch_{completed_epoch}.pt"),
-            )
-        if args.save_most_recent:
-            torch.save(
-                checkpoint_dict,
-                os.path.join(args.checkpoint_path, f"epoch_latest.pt"),
-            )
+        if is_master(args):
+            checkpoint_dict = {
+                "epoch": completed_epoch,
+                "name": args.name,
+                "state_dict": model_video.state_dict(),
+                "optimizer": optimizer.state_dict(),
+            }
+            if completed_epoch == args.epochs or (
+                args.save_frequency > 0 and (completed_epoch % args.save_frequency) == 0
+            ):
+                torch.save(
+                    checkpoint_dict,
+                    os.path.join(args.checkpoint_path, f"epoch_{completed_epoch}.pt"),
+                )
+            if args.save_most_recent:
+                torch.save(
+                    checkpoint_dict,
+                    os.path.join(args.checkpoint_path, f"epoch_latest.pt"),
+                )
 
     if args.report_to == "wandb" and is_master(args):
         wandb.finish()
