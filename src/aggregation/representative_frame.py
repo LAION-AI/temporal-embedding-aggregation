@@ -10,7 +10,7 @@ class RepresentativeFrame(nn.Module):
   def __init__(
       self,
       get_representative=lambda frames: frames[..., frames.shape[-2]//2, :], # center frame as default
-  )
+  ):
     super().__init__()
     self.get_representative = get_representative
   def forward(self, x):

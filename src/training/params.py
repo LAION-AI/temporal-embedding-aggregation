@@ -32,6 +32,12 @@ def parse_args():
         help="Number of samples in dataset. Useful for webdataset if not available in info file.",
     )
     parser.add_argument(
+        "--dataset-resampled",
+        default=False,
+        action="store_true",
+        help="Whether to use sampling with replacement for webdataset shard selection."
+    )
+    parser.add_argument(
         "--sequence-length",
         type=int,
         default=None,
