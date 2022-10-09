@@ -12,7 +12,7 @@ def accuracy(output, target, topk=(1,)):
     return [float(correct[:k].reshape(-1).float().sum(0, keepdim=True).cpu().numpy()) for k in topk]
 
 
-def zero_shot_eval(dataloader, labels, embedding_aggregator, prompt_func=labmda x: x)
+def zero_shot_evaluation(dataloader, labels, embedding_aggregator, prompt_func=lambda x: x):
     dataloader = dataloader
     embedding_aggregator = embedding_aggregator
     labels = labels

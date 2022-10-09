@@ -1,0 +1,14 @@
+{
+        "type": "SelfAttentionalPooler",
+        "args": {
+                "dim": 512,
+                "context_dim": 512,
+                "seq_len": 200,
+                "heads": 8,
+                "dim_head": 64,
+                "depth": 2,
+                "mlp_dim": 512,
+                "proj_dim": -1,
+                "dropout": 0.0
+        }
+}

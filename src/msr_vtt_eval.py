@@ -7,7 +7,6 @@ import pandas as pd
 
 from clip_video_encode.dataset import EmbeddingWebDatasetReader
 from aggregation.representative_frame import RepresentativeFrame
-from aggregation.self_attention_pool import SelfAttentionalPooler
 from aggregation.mean import Mean
 from aggregation.factory import create_model
 from evaluation.multicaption_retrieval import multicaption_retrieval_evaluation
@@ -30,16 +29,7 @@ if __name__ == "__main__":
         enable_meta=True
     )
 
-    model_video, model_str = create_model("aggregation/model_configs/self_attn_default_depth10.json")
-
-    # Load checkpoint
-    checkpoint = torch.load("logs/depth10_good_data/checkpoints/epoch_10.pt", map_location="cuda")
-    if 'epoch' in checkpoint:
-        start_epoch = checkpoint["epoch"]
-        sd = checkpoint["state_dict"]
-        if next(iter(sd.items()))[0].startswith('module'):
-            sd = {k[len('module.'):]: v for k, v in sd.items()}
-        model_video.load_state_dict(sd)
+    model_video, model_str = create_model("aggregation/model_configs/self_attn_default_depth10.json", pretrained="logs/depth10_good_data/checkpoints/epoch_10.pt")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model, preprocess = clip.load("ViT-B/32", device=device)

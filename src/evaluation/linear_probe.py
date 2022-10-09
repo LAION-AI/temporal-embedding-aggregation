@@ -21,7 +21,7 @@ def concat_features(dataloader, aggr, labs):
     return np.concatenate(all_features), np.array(all_labels)
 
 
-def linear_probe_eval(train_dataloader, val_dataloader, embedding_aggregator, labels):
+def linear_probe_evaluation(train_dataloader, val_dataloader, embedding_aggregator, labels):
     train_feat, train_lab = concat_features(train_dataloader, embedding_aggregator, labels)
     val_feat, val_lab = concat_features(val_dataloader, embedding_aggregator, labels)
 
