@@ -3,7 +3,10 @@ import torch
 
 
 def retrieval_evaluation(model_video, model_text, data):
-    # dataloader = data["val"].dataloader
+    if type(data) == dict:
+        dataloader = data["val"].dataloader
+    else:
+        dataloader = data
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dataloader = data
     all_video_features, all_text_features = [], []
