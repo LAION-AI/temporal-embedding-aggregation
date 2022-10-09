@@ -21,7 +21,7 @@ def multicaption_retrieval_evaluation(model_video, model_text, data):
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
 
-            video_embeddings = model_video(embeddings, None)
+            video_embeddings = model_video(embeddings)
             text_embeddings = model_text(toks).float()
 
             all_video_features.append(video_embeddings.cpu())

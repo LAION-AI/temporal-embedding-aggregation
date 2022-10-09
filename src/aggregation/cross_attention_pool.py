@@ -153,7 +153,7 @@ class CrossAttentionalPooler(nn.Module):
             nn.Linear((dim+proj_dim)//2, proj_dim),
         )
 
-    def forward(self, x, zero_masks):
+    def forward(self, x):
         x = x.type(torch.float32)
 
         attn_mask = None # Temporarily don't use masking
