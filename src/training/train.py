@@ -35,7 +35,7 @@ def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer
 
         optimizer.zero_grad()
 
-        video_embeddings = model_video(embeddings, None)
+        video_embeddings = model_video(embeddings)
         with torch.no_grad():
             text_embeddings = model_text(toks).float()
 
@@ -95,7 +95,7 @@ def evaluate(model_video, model_text, logit_scale, data, epoch, args, tb_writer=
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
 
-            video_embeddings = model_video(embeddings, None)
+            video_embeddings = model_video(embeddings)
             text_embeddings = model_text(toks).float()
 
             all_video_features.append(video_embeddings.cpu())
