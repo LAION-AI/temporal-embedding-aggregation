@@ -125,7 +125,7 @@ def main():
         )
 
         # Create scheduler:
-        total_steps = (args.train_num_samples // args.batch_size) * args.epochs
+        total_steps = data["train"].dataloader.num_batches * args.epochs
         scheduler = cosine_lr(optimizer, args.lr, args.warmup, total_steps)
 
     # Writing:
