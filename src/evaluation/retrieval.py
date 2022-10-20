@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-
+# hello 
 
 def retrieval_evaluation(model_video, model_text, data):
     if type(data) == dict:
