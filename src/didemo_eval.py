@@ -91,5 +91,5 @@ if __name__ == "__main__":
     model_text = model.encode_text
     model_video = Mean().to(device)
 
-    ret_mets = retrieval_evaluation(model_video, model_text, val_reader, multicaption=True, segment=True, segment_key='times', process_segments=process_didemo_segments)
+    ret_mets = retrieval_evaluation(model_video, model_text, val_reader, multicaption=True, segment=True, process_segments=process_didemo_segments)
     print(ret_mets)

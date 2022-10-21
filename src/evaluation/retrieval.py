@@ -16,6 +16,8 @@ def retrieval_evaluation(model_video, model_text, data, multicaption=False, segm
         for i, batch in enumerate(dataloader):
             embeddings = batch["embeddings"]
             toks = []
+            if i == 10:
+                break
             # TODO: does this require batch_size = 1 ??
             for cap in batch["text"]:
                 if multicaption:
@@ -61,6 +63,9 @@ def get_metrics(video_features, text_features, ground_truth, logit_scale):
     logits_per_video = (logit_scale * video_features @ text_features.t()).detach().cpu()
     logits_per_text = logits_per_video.t().detach().cpu()
 
+    logits_per_video = torch.randn_like(logits_per_video)
+    logits_per_text = torch.randn_like(logits_per_text)
+    
     # TODO: let's to text2video correctly and then figure out how to do video2text
     # maybe video2text is average logits over multiple captions
     '''
@@ -74,7 +79,7 @@ def get_metrics(video_features, text_features, ground_truth, logit_scale):
     # logits = {"video_to_text": logits_per_video, "text_to_video": logits_per_text}
     logits = {"text_to_video": logits_per_text}
     ground_truth = torch.tensor(ground_truth).view(-1, 1)
-
+    print(f'Num samples: {len(logits_per_text)}')
     for name, logit in logits.items():
         ranking = torch.argsort(logit, descending=True)
         preds = torch.where(ranking == ground_truth)[1]
