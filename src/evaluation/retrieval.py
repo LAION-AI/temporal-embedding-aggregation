@@ -2,8 +2,7 @@ import open_clip
 import numpy as np
 import torch
 
-
-def retrieval_evaluation(model_video, model_text, data, multicaption=False):
+def retrieval_evaluation(model_video, model_text, data, multicaption=False, segment=False, segment_key=None, process_segments=None):
     if type(data) == dict:
         dataloader = data["val"].dataloader
     else:
@@ -18,15 +17,21 @@ def retrieval_evaluation(model_video, model_text, data, multicaption=False):
             embeddings = batch["embeddings"]
             toks = []
             # TODO: does this require batch_size = 1 ??
-            for cap in batch["text"]:
+            for cap_idx, cap in enumerate(batch["text"]):
                 if multicaption:
                     for c in cap.split(";"): # multiple captions separated by ;
                         toks.append(open_clip.tokenize(c))
                         ground_truth.append(samp)
+                        if segment:
+                            samp += 1
+                if segment:
+                    segments = batch["meta"][segment_key]
+                    embeddings = process_segments(embeddings, segments)
                 else:
                     toks.append(open_clip.tokenize(cap))
                     ground_truth.append(samp)
                 samp += 1
+
             toks = torch.cat(toks)
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)

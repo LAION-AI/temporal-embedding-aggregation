@@ -6,7 +6,7 @@ import torch
 
 sys.path.insert(1, '/Users/daniel/Desktop/LAION_Videoclip/clip-video-encode')
 from clip_video_encode.dataset import EmbeddingWebDatasetReader
-from evaluation.multicaption_retrieval import multicaption_retrieval_evaluation
+from evaluation.retrieval import retrieval_evaluation
 
 eval_path = '/Users/daniel/Documents/GitHub/temporal-embedding-aggregation/CLIP-DiDeMo/data/oc_h14/test/'
 
@@ -30,14 +30,25 @@ def zero_pad(e, seq_len, model_dim=1024):
 
     return out
 
+def process_didemo_segments(embeddings, segments, seq_len=200):
+    times_frames = [
+        process_times(caption_segments[0], seq_len)
+        for caption_segments in segments
+    ]
+
+    out_embeddings = torch.stack([
+        zero_pad(embeddings[:, start:end, :].squeeze(0), seq_len)
+        for (start, end) in times_frames
+    ])
+
+    return out_embeddings
+
+
 def process_didemo_batch(batch, caption_sep = ';', device='cuda'):
     SEGMENT_KEY = 'times'
     embeddings = batch['embeddings']
-    #print(embeddings.shape)
+    
     seq_len = embeddings.shape[1]
-
-    #print(batch)
-
     captions = [
         text.split(caption_sep) 
         for text in batch['text']
@@ -58,9 +69,6 @@ def process_didemo_batch(batch, caption_sep = ';', device='cuda'):
         for (start, end) in times_frames
     ])
 
-    #print(times_frames)
-    #print(out_embeddings.shape)
-    #print(toks.shape)
     return out_embeddings, toks
 
 
@@ -79,9 +87,9 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     model, _, preprocess = open_clip.create_model_and_transforms('ViT-H-14', pretrained='laion2b_s32b_b79k')
-    
+
     model_text = model.encode_text
     model_video = Mean().to(device)
 
-    ret_mets = multicaption_retrieval_evaluation(model_video, model_text, val_reader, segment=True, process_batch=process_didemo_batch)
+    ret_mets = retrieval_evaluation(model_video, model_text, val_reader, multicaption=True, segment=True, segment_key='times', process_segments=process_didemo_segments)
     print(ret_mets)
