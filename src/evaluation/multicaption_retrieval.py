@@ -3,21 +3,35 @@ import numpy as np
 import torch
 
 
-def multicaption_retrieval_evaluation(model_video, model_text, data):
+def multicaption_retrieval_evaluation(model_video, model_text, data, segment=False, process_batch=None):
     if type(data) == dict:
         dataloader = data["val"].dataloader
     else:
         dataloader = data
     device = "cuda" if torch.cuda.is_available() else "cpu"
     all_video_features, all_text_features = [], []
+    
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
-            embeddings = batch["embeddings"]
-            toks = []
-            for k, v in batch["meta"].items():
-                if "caption" in k:
-                    toks.append(clip.tokenize(v))
-            toks = torch.cat(toks)
+            if i % 5 == 0:
+                print(i)
+
+            if i == 10:
+                break
+            
+            if segment:
+                embeddings, toks = process_batch(batch, device=device)
+
+            else:
+                embeddings = batch["embeddings"]
+                toks = []
+
+                for k, v in batch["meta"].items():
+                    if "caption" in k:
+                        toks.append(clip.tokenize(v))
+            
+                toks = torch.cat(toks)
+
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
 
@@ -26,14 +40,13 @@ def multicaption_retrieval_evaluation(model_video, model_text, data):
 
             all_video_features.append(video_embeddings.cpu())
             all_text_features.append(text_embeddings.cpu())
-
+            
         val_metrics = get_metrics(
             video_features=torch.cat(all_video_features),
             text_features=torch.cat(all_text_features),
             logit_scale=100.0,
         )
     return val_metrics
-
 
 def get_metrics(video_features, text_features, logit_scale):
     metrics = {}
