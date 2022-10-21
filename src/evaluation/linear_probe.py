@@ -1,7 +1,6 @@
 import os
 import glob
 
-import clip
 import torch
 import numpy as np
 
