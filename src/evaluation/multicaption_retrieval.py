@@ -1,4 +1,4 @@
-import clip
+import open_clip
 import numpy as np
 import torch
 
@@ -10,13 +10,21 @@ def multicaption_retrieval_evaluation(model_video, model_text, data):
         dataloader = data
     device = "cuda" if torch.cuda.is_available() else "cpu"
     all_video_features, all_text_features = [], []
+
+    '''
+    val_metrics = get_metrics(
+        video_features=torch.load("video_feat.pt"),
+        text_features=torch.load("text_feat.pt"),
+        logit_scale=100.0,
+    )
+    '''
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
             embeddings = batch["embeddings"]
             toks = []
             for k, v in batch["meta"].items():
                 if "caption" in k:
-                    toks.append(clip.tokenize(v))
+                    toks.append(open_clip.tokenize(v))
             toks = torch.cat(toks)
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
@@ -40,20 +48,29 @@ def get_metrics(video_features, text_features, logit_scale):
 
     video_features = video_features.float()
     logits_per_video = (logit_scale * video_features @ text_features.t()).detach().cpu()
+    logits_per_text = logits_per_video.t().detach().cpu()
 
+    '''
     # Average out over every 20 texts
     avg_per_20 = torch.zeros((video_features.shape[0], video_features.shape[0]))
     for i in range(video_features.shape[0]):
         avg_per_20[i, :] = torch.mean(logits_per_video[:, i*20:(i+1)*20], axis=-1)
     logits_per_video = avg_per_20
-    logits_per_text = logits_per_video.t().detach().cpu()
+    '''
 
-    logits = {"video_to_text": logits_per_video, "text_to_video": logits_per_text}
-    ground_truth = torch.arange(len(text_features)//20).view(-1, 1)
+    # logits = {"video_to_text": logits_per_video, "text_to_video": logits_per_text}
+    logits = {"text_to_video": logits_per_text}
+    # ground_truth = torch.arange(len(text_features)//20).view(-1, 1)
+    # ground_truth = torch.ceil((torch.arange(len(text_features))+1)/20).view(-1, 1) - 1
+    gt = []
+    for i in range(len(video_features)):
+        gt += 20*[i]
+    ground_truth = torch.tensor(gt).view(-1, 1)
 
     for name, logit in logits.items():
         ranking = torch.argsort(logit, descending=True)
         preds = torch.where(ranking == ground_truth)[1]
+        print(preds)
         preds = preds.detach().cpu().numpy()
         metrics[f"{name}_mean_rank"] = preds.mean() + 1
         metrics[f"{name}_median_rank"] = np.floor(np.median(preds)) + 1

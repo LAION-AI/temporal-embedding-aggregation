@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 
-def multicaption_retrieval_evaluation(model_video, model_text, data):
+def multicaption_retrieval_evaluation(model_video, model_text, data, multicaption=False):
     if type(data) == dict:
         dataloader = data["val"].dataloader
     else:
@@ -17,11 +17,16 @@ def multicaption_retrieval_evaluation(model_video, model_text, data):
         for i, batch in enumerate(dataloader):
             embeddings = batch["embeddings"]
             toks = []
-            ground truth 
             # TODO: does this require batch_size = 1 ??
-            for cap in batch["caption"].split(";") # multiple captions separated by ;
-                toks.append(open_clip.tokenize(cap))
-                ground_truth.append(samp)
+            for cap in batch["text"]:
+                if multicaption:
+                    for c in cap.split(";"): # multiple captions separated by ;
+                        toks.append(open_clip.tokenize(c))
+                        ground_truth.append(samp)
+                else:
+                    toks.append(open_clip.tokenize(cap))
+                    ground_truth.append(samp)
+                samp += 1
             toks = torch.cat(toks)
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
@@ -31,7 +36,6 @@ def multicaption_retrieval_evaluation(model_video, model_text, data):
 
             all_video_features.append(video_embeddings.cpu())
             all_text_features.append(text_embeddings.cpu())
-            samp += 1
 
         val_metrics = get_metrics(
             video_features=torch.cat(all_video_features),
@@ -62,7 +66,7 @@ def get_metrics(video_features, text_features, ground_truth, logit_scale):
 
     # logits = {"video_to_text": logits_per_video, "text_to_video": logits_per_text}
     logits = {"text_to_video": logits_per_text}
-    ground_truth = torch.tensor(gt).view(-1, 1)
+    ground_truth = torch.tensor(ground_truth).view(-1, 1)
 
     for name, logit in logits.items():
         ranking = torch.argsort(logit, descending=True)
