@@ -6,9 +6,8 @@ import torch
 
 sys.path.insert(1, '/Users/daniel/Desktop/LAION_Videoclip/clip-video-encode')
 from clip_video_encode.dataset import EmbeddingWebDatasetReader
-from evaluation.retrieval import retrieval_evaluation
 
-eval_path = '/Users/daniel/Documents/GitHub/temporal-embedding-aggregation/CLIP-DiDeMo/data/oc_h14/test/'
+from evaluation.retrieval import retrieval_evaluation
 
 def process_times(times, len_embeddings):
     '''
@@ -40,39 +39,11 @@ def process_didemo_segments(embeddings, segments, seq_len=200):
         zero_pad(embeddings[:, start:end, :].squeeze(0), seq_len)
         for (start, end) in times_frames
     ])
-    print(out_embeddings.shape)
+    
     return out_embeddings
 
-
-def process_didemo_batch(batch, caption_sep = ';', device='cuda'):
-    SEGMENT_KEY = 'times'
-    embeddings = batch['embeddings']
-    
-    seq_len = embeddings.shape[1]
-    captions = [
-        text.split(caption_sep) 
-        for text in batch['text']
-    ]
-
-    times_frames = [
-        process_times(caption_segments[0], seq_len)
-        for caption_segments in batch['meta'][SEGMENT_KEY]
-    ] # just take the first annotation for each caption
-
-    toks = torch.stack([
-        open_clip.tokenize(caption).to(device)
-        for caption in captions
-    ]).squeeze(0)
-
-    out_embeddings = torch.stack([
-        zero_pad(embeddings[:, start:end, :].squeeze(0), seq_len)
-        for (start, end) in times_frames
-    ])
-
-    return out_embeddings, toks
-
-
 if __name__ == "__main__":
+    eval_path = '/Users/daniel/Documents/GitHub/temporal-embedding-aggregation/CLIP-DiDeMo/data/oc_h14/test/'
     val_urls = eval_path + '{000000000..000000007}.tar'
     val_reader = EmbeddingWebDatasetReader(
         val_urls,
