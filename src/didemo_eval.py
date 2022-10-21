@@ -33,7 +33,7 @@ def process_didemo_segments(embeddings, segments, seq_len=200):
     times_frames = [
         process_times(caption_segments[0], seq_len)
         for caption_segments in segments
-    ]
+    ] # taking only the first annotated segment
 
     out_embeddings = torch.stack([
         zero_pad(embeddings[:, start:end, :].squeeze(0), seq_len)
@@ -62,5 +62,5 @@ if __name__ == "__main__":
     model_text = model.encode_text
     model_video = Mean().to(device)
 
-    ret_mets = retrieval_evaluation(model_video, model_text, val_reader, multicaption=True, segment=True, process_segments=process_didemo_segments)
+    ret_mets = retrieval_evaluation(model_video, model_text, val_reader, multicaption=True, segment=False, process_segments=process_didemo_segments)
     print(ret_mets)
