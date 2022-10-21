@@ -40,7 +40,7 @@ def process_didemo_segments(embeddings, segments, seq_len=200):
         zero_pad(embeddings[:, start:end, :].squeeze(0), seq_len)
         for (start, end) in times_frames
     ])
-
+    print(out_embeddings.shape)
     return out_embeddings
 
 

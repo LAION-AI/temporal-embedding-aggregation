@@ -2,7 +2,7 @@ import open_clip
 import numpy as np
 import torch
 
-def retrieval_evaluation(model_video, model_text, data, multicaption=False, segment=False, segment_key=None, process_segments=None):
+def retrieval_evaluation(model_video, model_text, data, multicaption=False, segment=False, process_segments=None):
     if type(data) == dict:
         dataloader = data["val"].dataloader
     else:
@@ -17,7 +17,7 @@ def retrieval_evaluation(model_video, model_text, data, multicaption=False, segm
             embeddings = batch["embeddings"]
             toks = []
             # TODO: does this require batch_size = 1 ??
-            for cap_idx, cap in enumerate(batch["text"]):
+            for cap in batch["text"]:
                 if multicaption:
                     for c in cap.split(";"): # multiple captions separated by ;
                         toks.append(open_clip.tokenize(c))
@@ -25,13 +25,16 @@ def retrieval_evaluation(model_video, model_text, data, multicaption=False, segm
                         if segment:
                             samp += 1
                 if segment:
-                    segments = batch["meta"][segment_key]
+                    segments = batch["meta"]["times"] # change to ...['segment']
                     embeddings = process_segments(embeddings, segments)
+
                 else:
                     toks.append(open_clip.tokenize(cap))
                     ground_truth.append(samp)
                 samp += 1
 
+            #print(len(ground_truth))
+            #print(embeddings.shape)
             toks = torch.cat(toks)
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
@@ -57,7 +60,6 @@ def get_metrics(video_features, text_features, ground_truth, logit_scale):
     video_features = video_features.float()
     logits_per_video = (logit_scale * video_features @ text_features.t()).detach().cpu()
     logits_per_text = logits_per_video.t().detach().cpu()
-
 
     # TODO: let's to text2video correctly and then figure out how to do video2text
     # maybe video2text is average logits over multiple captions
