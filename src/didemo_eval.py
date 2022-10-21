@@ -24,7 +24,7 @@ def process_times(times, len_embeddings):
         min( SEGMENT_INTERVAL * (times[1] + 1), len_embeddings )
     ]
 
-def zero_pad(e, seq_len, model_dim=512):
+def zero_pad(e, seq_len, model_dim=1024):
     out = torch.zeros(size=(seq_len, model_dim))
     out[0:len(e)] = e
 
@@ -33,7 +33,7 @@ def zero_pad(e, seq_len, model_dim=512):
 def process_didemo_batch(batch, caption_sep = ';', device='cuda'):
     SEGMENT_KEY = 'times'
     embeddings = batch['embeddings']
-    print(embeddings.shape)
+    #print(embeddings.shape)
     seq_len = embeddings.shape[1]
 
     #print(batch)
@@ -77,12 +77,11 @@ if __name__ == "__main__":
     )
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    #TODO: update dis to work with ViT-H/14
-    model, _, preprocess = open_clip.create_model_and_transforms('ViT-H-14', pretrained='laion400m_e32')
 
-
-    model_text = model.encode_text 
+    model, _, preprocess = open_clip.create_model_and_transforms('ViT-H-14', pretrained='laion2b_s32b_b79k')
+    
+    model_text = model.encode_text
     model_video = Mean().to(device)
 
     ret_mets = multicaption_retrieval_evaluation(model_video, model_text, val_reader, segment=True, process_batch=process_didemo_batch)
-    print(next(iter(val_reader)))
+    print(ret_mets)
