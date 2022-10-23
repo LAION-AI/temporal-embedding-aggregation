@@ -15,6 +15,8 @@ def retrieval_evaluation(model_video, model_text, data, multicaption=False):
 
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
+            if i == 3:
+                break
             embeddings = batch["embeddings"]
             toks = []
             # TODO: does this require batch_size = 1 ??
@@ -42,12 +44,19 @@ def retrieval_evaluation(model_video, model_text, data, multicaption=False):
             text_features=torch.cat(all_text_features),
             ground_truth=ground_truth,
             logit_scale=100.0,
+            multicaption=multicaption
         )
     return val_metrics
 
 
-def get_metrics(video_features, text_features, ground_truth, logit_scale):
+def get_metrics(video_features, text_features, ground_truth, logit_scale, multicaption=False):
     metrics = {}
+
+    if multicaption:
+        video_features = torch.stack([
+            video_features[i]
+            for i in ground_truth
+        ])
 
     video_features = video_features.float()
     logits_per_video = (logit_scale * video_features @ text_features.t()).detach().cpu()
