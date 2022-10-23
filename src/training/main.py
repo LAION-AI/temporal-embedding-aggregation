@@ -80,7 +80,7 @@ def main():
         os.makedirs(log_base_path, exist_ok=True)
         log_filename = "out.log"
         args.log_path = os.path.join(log_base_path, log_filename)
-        if os.path.exists(args.log_path):
+        if not args.resume and os.path.exists(args.log_path):
             print(
                 "Error. Experiment already exists. Use --name {} to specify a new experiment."
             )
