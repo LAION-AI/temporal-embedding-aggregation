@@ -2,7 +2,7 @@ import open_clip
 import numpy as np
 import torch
 
-def retrieval_evaluation(model_video, model_text, data, multicaption=False, segment=False, process_segments=None):
+def retrieval_evaluation(model_video, model_text, data, multicaption=False, segment=False):
     if type(data) == dict:
         dataloader = data["val"].dataloader
     else:
@@ -24,11 +24,14 @@ def retrieval_evaluation(model_video, model_text, data, multicaption=False, segm
                     for c in cap.split(";"): # multiple captions separated by ;
                         toks.append(open_clip.tokenize(c))
                         ground_truth.append(samp)
-                        if segment:
-                            samp += 1
+                        samp += segment
+
                 if segment:
-                    segments = batch["meta"]["times"] # change to ...['segment']
-                    embeddings = process_segments(embeddings, segments)
+                    segments = batch["meta"]["segment"]
+                    for idx, segment in enumerate(segments):
+                        start_frame, end_frame = segment
+                        embeddings[idx] = embeddings[idx][start_frame:end_frame]
+
                 else:
                     toks.append(open_clip.tokenize(cap))
                     ground_truth.append(samp)
