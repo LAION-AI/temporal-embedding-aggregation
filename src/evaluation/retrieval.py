@@ -30,7 +30,12 @@ def retrieval_evaluation(model_video, model_text, data, multicaption=False, segm
                     segments = batch["meta"]["segment"]
                     for idx, segment in enumerate(segments):
                         start_frame, end_frame = segment
-                        embeddings[idx] = embeddings[idx][start_frame:end_frame]
+
+                        # Zero pad our segmented
+                        segmented_embedding = torch.zeros_like(embeddings[idx])
+                        segmented_embedding[start_frame:end_frame] = embeddings[idx][start_frame:end_frame]
+
+                        embeddings[idx] = segmented_embedding
 
                 else:
                     toks.append(open_clip.tokenize(cap))
