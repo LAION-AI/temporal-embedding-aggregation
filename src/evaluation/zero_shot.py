@@ -1,7 +1,7 @@
 import os
 import glob
 
-import clip
+import open_clip
 import torch
 import numpy as np
 
@@ -19,7 +19,7 @@ def zero_shot_evaluation(dataloader, labels, embedding_aggregator, prompt_func=l
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     # TODO: generalize this to any text model, ideally pass in
-    model, _ = clip.load("ViT-B/32", device=device)
+    model, _, _= open_clip.create_model_and_transforms("ViT-B-32", pretrained="laion2b_s34b_b79k", device=device)
 
     # Create zero-shot classifier weights
     with open("evaluation/zs_templates.txt", "r") as f:
@@ -29,7 +29,7 @@ def zero_shot_evaluation(dataloader, labels, embedding_aggregator, prompt_func=l
         zeroshot_weights = []
         for classname in labels:
             texts = [template.format(classname) for template in templates]
-            texts = clip.tokenize(texts).to(device)
+            texts = open_clip.tokenize(texts).to(device)
             class_embeddings = model.encode_text(texts)
             class_embeddings /= class_embeddings.norm(dim=-1, keepdim=True)
             class_embedding = class_embeddings.mean(dim=0)
