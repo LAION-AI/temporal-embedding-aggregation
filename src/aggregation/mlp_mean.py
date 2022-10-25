@@ -1,9 +1,10 @@
 """
-Transformer for encoding sequences of frame embeddings
+MLP then Mean
 """
 import math
 import torch
 import torch.nn.functional as F
+from torch import nn
 
 class MLPMean(nn.Module):
     def __init__(self, dim, proj_dim):
