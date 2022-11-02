@@ -10,6 +10,7 @@ def retrieval_evaluation(model_video, model_text, data):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dataloader = data
     all_video_features, all_text_features = [], []
+    
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
             # embeddings, toks = batch
@@ -24,14 +25,13 @@ def retrieval_evaluation(model_video, model_text, data):
 
             all_video_features.append(video_embeddings.cpu())
             all_text_features.append(text_embeddings.cpu())
-
+            
         val_metrics = get_metrics(
             video_features=torch.cat(all_video_features),
             text_features=torch.cat(all_text_features),
             logit_scale=100.0,
         )
     return val_metrics
-
 
 def get_metrics(video_features, text_features, logit_scale):
     metrics = {}
