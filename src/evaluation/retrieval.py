@@ -32,7 +32,7 @@ def retrieval_evaluation(model_video, model_text, data):
             all_text_features.append(text_embeddings.cpu())
         
         video_features = torch.cat(all_video_features)
-        text_features = torch.stack(all_text_features)
+        text_features = torch.stack(all_text_features) # maintain the 3d structure of text_features
 
         val_metrics = get_metrics(
             video_features=video_features,
