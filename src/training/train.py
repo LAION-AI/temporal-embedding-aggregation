@@ -3,6 +3,7 @@ import logging
 import wandb
 
 import torch
+import torch.nn.functional as F
 import numpy as np
 
 from torch import nn
@@ -33,11 +34,20 @@ def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer
         embeddings = embeddings.to(device, non_blocking=True)
         toks = toks.to(device, non_blocking=True)
 
+
         optimizer.zero_grad()
+
+        # RESEARCH: trying this out
+        embeddings = embeddings.type(torch.float32)
+        embeddings = F.normalize(embeddings, dim=-1)
 
         video_embeddings = model_video(embeddings)
         with torch.no_grad():
             text_embeddings = model_text(toks).float()
+
+        # RESEARCH: trying this out
+        video_embeddings = F.normalize(video_embeddings, dim=-1)
+        text_embeddings = F.normalize(text_embeddings, dim=-1)
 
         loss = loss_func(video_embeddings, text_embeddings, logit_scale.exp())
         running_loss += loss.item() # maybe this doesn't make sense
@@ -95,8 +105,16 @@ def evaluate(model_video, model_text, logit_scale, data, epoch, args, tb_writer=
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
 
+            # RESEARCH: trying this out
+            embeddings = embeddings.type(torch.float32)
+            embeddings = F.normalize(embeddings, dim=-1)
+
             video_embeddings = model_video(embeddings)
             text_embeddings = model_text(toks).float()
+
+            # RESEARCH: trying this out
+            video_embeddings = F.normalize(video_embeddings, dim=-1)
+            text_embeddings = F.normalize(text_embeddings, dim=-1)
 
             all_video_features.append(video_embeddings.cpu())
             all_text_features.append(text_embeddings.cpu())
@@ -119,7 +137,7 @@ def evaluate(model_video, model_text, logit_scale, data, epoch, args, tb_writer=
         if tb_writer is not None:
             tb_writer.add_scalar(name, val, epoch)
         if args.report_to == "wandb":
-            wandb.log({name: val, 'epoch': epoch}, step=epoch)
+            wandb.log({name: val, 'epoch': epoch})
 
     if is_master(args):
         logging.info(

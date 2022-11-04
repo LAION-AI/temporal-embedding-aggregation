@@ -8,7 +8,6 @@ import pandas as pd
 from clip_video_encode.dataset import EmbeddingWebDatasetReader
 from aggregation.representative_frame import RepresentativeFrame
 from aggregation.mean import Mean
-from aggregation.wavg import WAvg
 from aggregation.factory import create_model
 from evaluation.retrieval import retrieval_evaluation
 
@@ -18,13 +17,12 @@ def center_frame(seq):
 
 
 if __name__ == "__main__":
-    VAL_TARS = "pipe:aws s3 cp s3://s-laion/msr_vtt/clip_msr_vtt/oc_h14/test_fix/{000000000..000000007}.tar -"
-    # VAL_TARS = "/fsx/iejmac/datasets/msr-vtt/fix/dataset/{000000000..000000007}.tar"
-
+    # VAL_TARS = "pipe:aws s3 cp s3://s-laion/msvd/clip_msvd/oc_h14/test/{000000000..000000007}.tar -"
+    VAL_TARS = "pipe:aws s3 cp s3://s-laion/msvd/clip_msvd/oc_h14/test/{000000000..000000000}.tar -"
     val_urls = VAL_TARS 
     val_reader = EmbeddingWebDatasetReader(
         val_urls,
-        standard_seq_len=-1,
+        standard_seq_len=200,
         batch_size=1,
         num_prepro_workers=6,
         to_tensor=False,
@@ -32,28 +30,11 @@ if __name__ == "__main__":
         enable_meta=False
     )
 
-    # config = "H14_depth_run_1"
-    # model_config = f"experiments/model_configs/{config}.json"
-    # checkpoint = f"logs/{config}/checkpoints/epoch_10.pt"
-    # checkpoint = f"logs/{config}-double_normalized/checkpoints/epoch_4.pt"
-
-    model_config = "aggregation/model_configs/mlp_mean.json"
-    checkpoint = "logs/stupid-mlp_mean/checkpoints/epoch_2.pt"
-
-    # model_config = "aggregation/model_configs/wavg.json"
-    # checkpoint = "logs/wavg_baseline_start_avg/checkpoints/epoch_2.pt"
-
-    model_video, model_str = create_model(model_config, pretrained=checkpoint)
-
+    model_video, model_str = create_model("aggregation/model_configs/self_attn_default_depth20_dim1024.json", pretrained="logs/H14_depth20_8k_bs_1e-3_lr/checkpoints/epoch_3.pt")
     # model_video = Mean()
-    # model_video = WAvg(200)
-
-    n_params = sum(p.numel() for p in model_video.parameters() if p.requires_grad)
-    print(n_params / 1e6)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model, _, preprocess = open_clip.create_model_and_transforms("ViT-H-14", pretrained="laion2b_s32b_b79k", device=device)
-    # model, _, preprocess = open_clip.create_model_and_transforms("ViT-B-32", pretrained="laion2b_s34b_b79k", device=device)
     # model, _, preprocess = open_clip.create_model_and_transforms("ViT-B-32", pretrained="openai", device=device)
     model_text = model.encode_text
 

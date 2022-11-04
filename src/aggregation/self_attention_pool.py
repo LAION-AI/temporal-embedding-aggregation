@@ -95,7 +95,7 @@ class SelfAttentionalPooler(nn.Module):
             self.mlp_head = nn.Identity()
 
     def forward(self, x):
-        x = x.type(torch.float32)
+
         x += self.pos_encoding
         for attn, ff in self.layers:
             x = attn(x) + x

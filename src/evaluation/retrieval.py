@@ -1,6 +1,7 @@
 import open_clip
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 
 def retrieval_evaluation(model_video, model_text, data, multicaption=False):
@@ -16,6 +17,8 @@ def retrieval_evaluation(model_video, model_text, data, multicaption=False):
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
             embeddings = batch["embeddings"]
+            embeddings = embeddings.type(torch.float32)
+            embeddings = F.normalize(embeddings, dim=-1)
             toks = []
             # TODO: does this require batch_size = 1 ??
             for cap in batch["text"]:
@@ -34,6 +37,12 @@ def retrieval_evaluation(model_video, model_text, data, multicaption=False):
             video_embeddings = model_video(embeddings)
             text_embeddings = model_text(toks).float()
 
+            # TODO: trying
+            # video_embeddings /= video_embeddings.norm(dim=-1, keepdim=True)
+            # text_embeddings /= text_embeddings.norm(dim=-1, keepdim=True)
+            video_embeddings = F.normalize(video_embeddings, dim=-1)
+            text_embeddings = F.normalize(text_embeddings, dim=-1)
+
             all_video_features.append(video_embeddings.cpu())
             all_text_features.append(text_embeddings.cpu())
 
@@ -46,12 +55,20 @@ def retrieval_evaluation(model_video, model_text, data, multicaption=False):
     return val_metrics
 
 
+def normalize_matrix(A):
+  assert len(A.shape) == 2
+  A_norm = torch.linalg.norm(A, dim = -1, keepdim = True)
+  return A / A_norm
+
+
 def get_metrics(video_features, text_features, ground_truth, logit_scale):
     metrics = {}
 
     video_features = video_features.float()
     logits_per_video = (logit_scale * video_features @ text_features.t()).detach().cpu()
     logits_per_text = logits_per_video.t().detach().cpu()
+
+    # logits_per_text = normalize_matrix(logits_per_text)
 
 
     # TODO: let's to text2video correctly and then figure out how to do video2text

@@ -10,6 +10,9 @@ import numpy as np
 import torch
 import torch.utils.tensorboard as tensorboard
 
+# 2x speedup from rom
+torch.backends.cuda.matmul.allow_tf32 = True
+
 try:
     import horovod.torch as hvd
 except ImportError:
