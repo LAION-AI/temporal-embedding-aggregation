@@ -41,6 +41,16 @@ def retrieval_evaluation(model_video, model_text, data):
         )
     return val_metrics,
 
+def zero_pad_text_features(text_features, max_txt_len, dim_model=512):
+  out = []
+  for mat in text_features:
+    padded = torch.zeros(size=(max_txt_len, dim_model))
+    padded[0:len(mat), :] = mat
+    
+    out.append(padded)
+
+  return torch.stack(out)
+  
 def get_metrics(video_features, text_features, logit_scale):
     ''' 
     Assumptions for this eval:
@@ -72,16 +82,21 @@ def get_metrics(video_features, text_features, logit_scale):
     logits_per_video = min_rank.t().unsqueeze(0)
     
     logits = {'video_to_text': logits_per_video, 'text_to_video': logits_per_text}
-    
-    for name, logit in logits.items():
-      argsorted = torch.argsort(logit, dim=-1, descending=True)
-      ranks_on_diagonals = torch.argsort(argsorted, dim=-1, descending=False)
-      
-      rankings = torch.diagonal(ranks_on_diagonals, dim1=-1, dim2=-2).flatten().float()
 
-      metrics[f"{name}_mean_rank"] = (rankings.mean() + 1).item()
-      metrics[f"{name}_median_rank"] = (torch.floor(torch.median(rankings)) + 1).item()
-      for k in [1, 5, 10]:
-        metrics[f'{name}_R@{k}'] = torch.mean((rankings < k).float()).item()
+    for name, logit in logits.items():
+        argsorted = torch.argsort(logit, dim=-1, descending=True)
+        ranks_on_diagonals = torch.argsort(argsorted, dim=-1, descending=False)
+        
+        rankings = torch.diagonal(ranks_on_diagonals, dim1=-1, dim2=-2).flatten().float()
+
+        if name == 'text_to_video':
+            diagonal_logits = torch.diagonal(logit, dim1=-1, dim2=-2).flatten()
+            mask = ~(diagonal_logits == 0) # make sure we take out zero padded logits
+            rankings = rankings[mask]
+            
+        metrics[f"{name}_mean_rank"] = (rankings.mean() + 1).item()
+        metrics[f"{name}_median_rank"] = (torch.floor(torch.median(rankings)) + 1).item()
+        for k in [1, 5, 10]:
+            metrics[f'{name}_R@{k}'] = torch.mean((rankings < k).float()).item()
 
     return metrics
