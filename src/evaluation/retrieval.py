@@ -14,9 +14,16 @@ def retrieval_evaluation(model_video, model_text, data, multicaption=False):
     ground_truth = []
     samp = 0
 
+    # TODO: REMOVE IF NOT WORK
+    mean_emb = torch.load("mean_emb.pt")
+
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
             embeddings = batch["embeddings"]
+
+            # TODO: REMOVE IF NOT WORK
+            embeddings -= mean_emb
+
             embeddings = embeddings.type(torch.float32)
             embeddings = F.normalize(embeddings, dim=-1)
             toks = []

@@ -25,12 +25,19 @@ def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer
     dataloader = data["train"].dataloader
     num_batches_per_epoch = dataloader.num_batches
 
+    # TODO: REMOVE IF NOT WORK
+    mean_embedding = torch.load("mean_emb.pt").to(args.device)
+
     running_loss = 0.0
     for  i, batch in enumerate(dataloader):
         step = num_batches_per_epoch * epoch + i
         scheduler(step)
 
         embeddings, toks = batch
+
+        # TODO: REMOVE IF NOT WORK
+        embeddings -= mean_embedding
+
         embeddings = embeddings.to(device, non_blocking=True)
         toks = toks.to(device, non_blocking=True)
 
