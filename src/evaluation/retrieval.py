@@ -10,17 +10,21 @@ def retrieval_evaluation(model_video, model_text, data):
         dataloader = data
     device = "cuda" if torch.cuda.is_available() else "cpu"
     all_video_features, all_text_features = [], []
+    max_txt_len = 1
     
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
             embeddings = batch["embeddings"]
-
             toks = []
             # TODO: does this require batch_size = 1 ??
             for cap in batch["text"]:
-                for c in cap.split(";"): # multiple captions separated by ;
-                    toks.append(open_clip.tokenize(c))
-            
+              caps_list = cap.split(';')
+              if len(caps_list) > max_txt_len:
+                max_txt_len = len(caps_list)
+
+              for c in caps_list: # multiple captions separated by ;
+                  toks.append(open_clip.tokenize(c))
+          
             toks = torch.cat(toks)
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
@@ -30,16 +34,16 @@ def retrieval_evaluation(model_video, model_text, data):
 
             all_video_features.append(video_embeddings.cpu())
             all_text_features.append(text_embeddings.cpu())
-        
+        dim_model = all_video_features[0].shape[-1]
+        text_features = zero_pad_text_features(all_text_features, max_txt_len, dim_model=dim_model)
         video_features = torch.cat(all_video_features)
-        text_features = torch.stack(all_text_features) # maintain the 3d structure of text_features
-
+        
         val_metrics = get_metrics(
             video_features=video_features,
             text_features=text_features,
             logit_scale=100.0,
         )
-    return val_metrics,
+    return val_metrics
 
 def zero_pad_text_features(text_features, max_txt_len, dim_model=512):
   out = []
