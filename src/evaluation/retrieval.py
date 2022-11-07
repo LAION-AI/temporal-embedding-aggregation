@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from einops import rearrange
 
-def retrieval_evaluation(model_video, model_text, data):
+def retrieval_evaluation(model_video, model_text, data, multicaption=False):
     if type(data) == dict:
         dataloader = data["val"].dataloader
     else:
@@ -18,13 +18,15 @@ def retrieval_evaluation(model_video, model_text, data):
             toks = []
             # TODO: does this require batch_size = 1 ??
             for cap in batch["text"]:
-              caps_list = cap.split(';')
-              if len(caps_list) > max_txt_len:
-                max_txt_len = len(caps_list)
+                if multicaption:
+                    caps_list = cap.split(';')
+                    max_txt_len = max(max_txt_len, len(caps_list))
+            
+                    for c in caps_list: # multiple captions separated by ;
+                        toks.append(open_clip.tokenize(c))
+                else:
+                    toks.append(open_clip.tokenize(cap))
 
-              for c in caps_list: # multiple captions separated by ;
-                  toks.append(open_clip.tokenize(c))
-          
             toks = torch.cat(toks)
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
@@ -34,8 +36,12 @@ def retrieval_evaluation(model_video, model_text, data):
 
             all_video_features.append(video_embeddings.cpu())
             all_text_features.append(text_embeddings.cpu())
+
         dim_model = all_video_features[0].shape[-1]
-        text_features = zero_pad_text_features(all_text_features, max_txt_len, dim_model=dim_model)
+
+        text_features = torch.stack(
+            zero_pad_text_features(all_text_features, max_txt_len, dim_model=dim_model)
+        ) if multicaption else torch.cat(all_text_features).unsqueeze(1)
         video_features = torch.cat(all_video_features)
         
         val_metrics = get_metrics(
@@ -46,16 +52,17 @@ def retrieval_evaluation(model_video, model_text, data):
     return val_metrics
 
 def zero_pad_text_features(text_features, max_txt_len, dim_model=512):
-  out = []
-  for mat in text_features:
-    padded = torch.zeros(size=(max_txt_len, dim_model))
-    padded[0:len(mat), :] = mat
-    
-    out.append(padded)
+    out = []
+    for mat in text_features:
+        padded = torch.zeros(size=(max_txt_len, dim_model))
+        padded[0:len(mat), :] = mat
 
-  return torch.stack(out)
-  
-def get_metrics(video_features, text_features, logit_scale):
+        out.append(padded)
+
+    return out
+    
+
+def get_metrics(video_features, text_features, logit_scale, multicaption=False):
     ''' 
     Assumptions for this eval:
 
@@ -92,11 +99,10 @@ def get_metrics(video_features, text_features, logit_scale):
         ranks_on_diagonals = torch.argsort(argsorted, dim=-1, descending=False)
         
         rankings = torch.diagonal(ranks_on_diagonals, dim1=-1, dim2=-2).flatten().float()
-
-        if name == 'text_to_video':
-            diagonal_logits = torch.diagonal(logit, dim1=-1, dim2=-2).flatten()
-            mask = ~(diagonal_logits == 0) # make sure we take out zero padded logits
-            rankings = rankings[mask]
+        
+        diagonal_logits = torch.diagonal(logit, dim1=-1, dim2=-2).flatten().float()
+        mask = ~(diagonal_logits == 0) # make sure we take out zero padded logits
+        rankings = rankings[mask]
             
         metrics[f"{name}_mean_rank"] = (rankings.mean() + 1).item()
         metrics[f"{name}_median_rank"] = (torch.floor(torch.median(rankings)) + 1).item()
