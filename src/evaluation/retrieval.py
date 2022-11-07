@@ -62,7 +62,7 @@ def zero_pad_text_features(text_features, max_txt_len, dim_model=512):
     return out
     
 
-def get_metrics(video_features, text_features, logit_scale, multicaption=False):
+def get_metrics(video_features, text_features, logit_scale):
     ''' 
     Assumptions for this eval:
 
