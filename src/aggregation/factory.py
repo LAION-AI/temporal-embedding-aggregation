@@ -3,7 +3,7 @@ import json
 import logging
 
 import torch
-
+from aggregator_wrapper import VideoCLIP
 from . import * # TODO: only take models
 
 
@@ -53,5 +53,5 @@ def create_model(cfg_path, pretrained=''):
         else:
             logging.warning(f'Pretrained weights ({pretrained}) not found for model {model_name}.')
             raise RuntimeError(f'Pretrained weights ({pretrained}) not found for model {model_name}.')
-
-    return model, get_model_string(model_dict)
+    
+    return VideoCLIP(model), get_model_string(model_dict)
