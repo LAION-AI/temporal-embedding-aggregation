@@ -1,19 +1,19 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 
-class VideoCLIPAggregator(nn.Module):
+class VideoCLIP(nn.Module):
     """
     Class to wrap aggregators so we can control their normalization and logit scale
     """
-    def __init__(self, aggregator, logit_scale=100.0, normalize=True):
+    def __init__(self, aggregator):
         super().__init__()
         self.aggregator = aggregator
-        self.logit_scale = logit_scale
-        self.normalize = normalize
+        self.logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
-    def forward(self, x):
+    def forward(self, x, prenorm, postnorm):
+        x = F.normalize(x, dim=-1) if prenorm else x
         x = self.aggregator(x)
-        return self.logit_scale * F.normalize(
-            x, dim=-1
-        ) if self.normalize else self.logit_scale * x
+        x = F.normalize(x, dim=-1) if postnorm else x
+        return x, self.logit_scale.exp()

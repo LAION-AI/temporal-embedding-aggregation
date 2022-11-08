@@ -5,7 +5,7 @@ video_embedding = mean(frame_embeddings)
 """
 
 from torch import nn
-import torch.nn.functional as F
+
 class Mean(nn.Module):
   def __init__(self):
     super().__init__()
