@@ -12,7 +12,7 @@ class VideoCLIP(nn.Module):
         self.aggregator = aggregator
         self.logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
-    def forward(self, x, prenorm, postnorm):
+    def forward(self, x, prenorm=True, postnorm=True):
         x = F.normalize(x, dim=-1) if prenorm else x
         x = self.aggregator(x)
         x = F.normalize(x, dim=-1) if postnorm else x
