@@ -44,10 +44,10 @@ if __name__ == "__main__":
     # model_config = "aggregation/model_configs/wavg.json"
     # checkpoint = "logs/stupid-wavg/checkpoints/epoch_4.pt"
 
-    model_video, model_str = create_model(model_config, pretrained=checkpoint)
+    # model_video, model_str = create_model(model_config, pretrained=checkpoint)
     # model_video.w = torch.nn.Parameter(torch.abs(model_video.w))
 
-    # model_video = Mean()
+    model_video = Mean()
     # model_video = WAvg(200)
 
     n_params = sum(p.numel() for p in model_video.parameters() if p.requires_grad)

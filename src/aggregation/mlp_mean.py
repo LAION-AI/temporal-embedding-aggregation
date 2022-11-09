@@ -10,11 +10,9 @@ class MLPMean(nn.Module):
     def __init__(self, dim, proj_dim):
         super().__init__()
         self.mlp_head = nn.Sequential(
-            nn.LayerNorm(dim),
-            nn.Linear(dim, 256),
+            nn.Linear(dim, 128),
             nn.GELU(),
-            nn.LayerNorm(256),
-            nn.Linear(256, proj_dim),
+            nn.Linear(128, proj_dim),
         )
     def forward(self, inp):
         x = self.mlp_head(inp)

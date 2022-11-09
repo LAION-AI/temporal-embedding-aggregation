@@ -17,7 +17,7 @@ def center_frame(seq):
 
 
 if __name__ == "__main__":
-    # VAL_TARS = "pipe:aws s3 cp s3://s-laion/msvd/clip_msvd/oc_h14/test/{000000000..000000007}.tar -"
+    # VAL_TARS = "pipe:aws s3 cp s3://s-laion/msvd/clip_msvd/oai_b32/test/{000000000..000000000}.tar -"
     VAL_TARS = "pipe:aws s3 cp s3://s-laion/msvd/clip_msvd/oc_h14/test/{000000000..000000000}.tar -"
     val_urls = VAL_TARS 
     val_reader = EmbeddingWebDatasetReader(
@@ -30,8 +30,26 @@ if __name__ == "__main__":
         enable_meta=False
     )
 
-    model_video, model_str = create_model("aggregation/model_configs/self_attn_default_depth20_dim1024.json", pretrained="logs/H14_depth20_8k_bs_1e-3_lr/checkpoints/epoch_3.pt")
+    # config = "H14_depth_run_0"
+    # model_config = f"experiments/model_configs/{config}.json"
+    # checkpoint = f"logs/{config}/checkpoints/epoch_10.pt"
+    # checkpoint = f"logs/{config}-double_normalized/checkpoints/epoch_4.pt"
+    # checkpoint = "logs/H14_depth_run_0-double_normalized_remove_mean/checkpoints/epoch_3.pt"
+
+    model_config = "aggregation/model_configs/mlp_mean.json"
+    checkpoint = "logs/stupid-mlp_mean/checkpoints/epoch_1.pt"
+
+    # model_config = "aggregation/model_configs/wavg.json"
+    # checkpoint = "logs/stupid-wavg/checkpoints/epoch_4.pt"
+
+    model_video, model_str = create_model(model_config, pretrained=checkpoint)
+
     # model_video = Mean()
+    # model_video = WAvg(200)
+
+    n_params = sum(p.numel() for p in model_video.parameters() if p.requires_grad)
+    print(n_params / 1e6)
+
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model, _, preprocess = open_clip.create_model_and_transforms("ViT-H-14", pretrained="laion2b_s32b_b79k", device=device)

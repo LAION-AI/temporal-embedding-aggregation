@@ -14,6 +14,8 @@ def retrieval_evaluation(model_video, model_text, data, multicaption=False):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     all_video_features, all_text_features = [], []
     max_txt_len = 1
+
+    mean_emb = torch.load("mean_emb.pt")
     
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
