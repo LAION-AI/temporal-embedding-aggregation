@@ -24,7 +24,7 @@ if __name__ == "__main__":
     val_urls = VAL_TARS 
     val_reader = EmbeddingWebDatasetReader(
         val_urls,
-        standard_seq_len=-1,
+        standard_seq_len=200,
         batch_size=1,
         num_prepro_workers=6,
         to_tensor=False,
@@ -32,18 +32,20 @@ if __name__ == "__main__":
         enable_meta=False
     )
 
-    # config = "H14_depth_run_1"
+    # config = "H14_depth_run_0"
     # model_config = f"experiments/model_configs/{config}.json"
     # checkpoint = f"logs/{config}/checkpoints/epoch_10.pt"
     # checkpoint = f"logs/{config}-double_normalized/checkpoints/epoch_4.pt"
+    # checkpoint = "logs/H14_depth_run_0-double_normalized_remove_mean/checkpoints/epoch_3.pt"
 
     model_config = "aggregation/model_configs/mlp_mean.json"
-    checkpoint = "logs/stupid-mlp_mean/checkpoints/epoch_2.pt"
+    checkpoint = "logs/stupid-mlp_mean/checkpoints/epoch_1.pt"
 
     # model_config = "aggregation/model_configs/wavg.json"
-    # checkpoint = "logs/wavg_baseline_start_avg/checkpoints/epoch_2.pt"
+    # checkpoint = "logs/stupid-wavg/checkpoints/epoch_4.pt"
 
     model_video, model_str = create_model(model_config, pretrained=checkpoint)
+    # model_video.w = torch.nn.Parameter(torch.abs(model_video.w))
 
     # model_video = Mean()
     # model_video = WAvg(200)

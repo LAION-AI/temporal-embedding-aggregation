@@ -7,10 +7,10 @@ python3.8 -m training.main \
     --val-num-samples 2700 \
     --warmup 200 \
     --sequence-length 200 \
-    --lr 5e-4 \
+    --lr 1e-3 \
     --batch-size 16 \
     --workers 6 \
-    --epochs 2 \
+    --epochs 4 \
     --name "stupid-wavg" \
     --report-to "" \
     --model "aggregation/model_configs/wavg.json" \

@@ -37,11 +37,11 @@ if __name__ == "__main__":
     # model_video = Mean()
     # model_video, model_str = create_model("aggregation/model_configs/self_attn_default_depth10_dim1024.json", pretrained="logs/H14_depth10_8k_bs_1e-3_lr/checkpoints/epoch_4.pt")
 
-    model_config = "aggregation/model_configs/mlp_mean.json"
-    checkpoint = "logs/stupid-mlp_mean/checkpoints/epoch_2.pt"
+    # model_config = "aggregation/model_configs/mlp_mean.json"
+    # checkpoint = "logs/stupid-mlp_mean/checkpoints/epoch_2.pt"
 
-    # model_config = "aggregation/model_configs/wavg.json"
-    # checkpoint = "logs/stupid-wavg/checkpoints/epoch_2.pt"
+    model_config = "aggregation/model_configs/wavg.json"
+    checkpoint = "logs/stupid-wavg/checkpoints/epoch_2.pt"
     model_video, model_str = create_model(model_config, pretrained=checkpoint)
 
 

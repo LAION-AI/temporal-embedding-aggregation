@@ -23,6 +23,7 @@ def retrieval_evaluation(model_video, model_text, data, multicaption=False):
 
             # TODO: REMOVE IF NOT WORK
             embeddings -= mean_emb
+            embeddings *= batch["zero_mask"][..., None]
 
             embeddings = embeddings.type(torch.float32)
             embeddings = F.normalize(embeddings, dim=-1)

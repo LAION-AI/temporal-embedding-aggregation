@@ -118,7 +118,10 @@ def main():
         logging.info(f'Running with a single process. Device {args.device}.')
 
     # Get data:
-    preprocess = (torch.nn.Identity(), torch.nn.Identity())
+    mean_embedding = torch.load("mean_emb.pt").numpy()[0]
+    postproc_emb = lambda emb: emb - mean_embedding
+    # preprocess = (torch.nn.Identity(), torch.nn.Identity())
+    preprocess = (postproc_emb, postproc_emb)
     data = get_data(args, preprocess)
 
     # Create model:
