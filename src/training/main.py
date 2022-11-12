@@ -189,11 +189,11 @@ def main():
     for epoch in range(start_epoch, args.epochs):
         if is_master(args):
             logging.info(f'Start epoch {epoch}')
-        train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer, scheduler, args, writer)
+        train_one_epoch(model_video, model_text, data, epoch, optimizer, scheduler, args, writer)
         completed_epoch = epoch + 1
 
         if 'val' in data:
-            evaluate(model_video, model_text, logit_scale, data, epoch, args, writer)
+            evaluate(model_video, model_text, data, epoch, args, writer)
 
         # Save checkpoint
         if is_master(args):

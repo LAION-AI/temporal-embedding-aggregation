@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+src/Untitled.ipynb
+src/CLIP-MSVD/
+src/logs/
+src/**.tar

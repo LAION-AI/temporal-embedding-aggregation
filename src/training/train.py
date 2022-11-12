@@ -10,7 +10,7 @@ from training.loss import ClipLoss
 from .distributed import is_master
 
 
-def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer, scheduler, args, tb_writer=None):
+def train_one_epoch(model_video, model_text, data, epoch, optimizer, scheduler, args, tb_writer=None):
     device = torch.device(args.device)
     model_video.train()
     loss_func = ClipLoss(
@@ -26,20 +26,21 @@ def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer
 
     running_loss = 0.0
     for  i, batch in enumerate(dataloader):
+        
         step = num_batches_per_epoch * epoch + i
         scheduler(step)
-
+        
         embeddings, toks = batch
         embeddings = embeddings.to(device, non_blocking=True)
         toks = toks.to(device, non_blocking=True)
 
         optimizer.zero_grad()
-
-        video_embeddings = model_video(embeddings)
+        
+        video_embeddings, logit_scale = model_video(embeddings)
         with torch.no_grad():
             text_embeddings = model_text(toks).float()
-
-        loss = loss_func(video_embeddings, text_embeddings, logit_scale.exp())
+            
+        loss = loss_func(video_embeddings, text_embeddings, logit_scale)
         running_loss += loss.item() # maybe this doesn't make sense
 
         loss.backward()
@@ -66,9 +67,9 @@ def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer
                     wandb.log({name: val, 'step': step}, step=step)
 
             running_loss = 0.0
+        break
 
-
-def evaluate(model_video, model_text, logit_scale, data, epoch, args, tb_writer=None):
+def evaluate(model_video, model_text, data, epoch, args, tb_writer=None):
     metrics = {}
     if not is_master(args):
         return metrics
@@ -90,12 +91,12 @@ def evaluate(model_video, model_text, logit_scale, data, epoch, args, tb_writer=
     all_video_features, all_text_features = [], []
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
-
+            
             embeddings, toks = batch
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
 
-            video_embeddings = model_video(embeddings)
+            video_embeddings, logit_scale = model_video(embeddings)
             text_embeddings = model_text(toks).float()
 
             all_video_features.append(video_embeddings.cpu())

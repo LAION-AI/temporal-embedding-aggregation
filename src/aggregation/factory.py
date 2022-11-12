@@ -3,9 +3,8 @@ import json
 import logging
 
 import torch
-from aggregator_wrapper import VideoCLIP
+from aggregation.aggregator_wrapper import VideoCLIP
 from . import * # TODO: only take models
-
 
 def get_model_string(m_dict):
     s = m_dict["type"]
