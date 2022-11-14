@@ -43,7 +43,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         optimizer.step()
 
         batch_count = i + 1
-        if is_master(args) and (batch_count % 100 == 1 or batch == num_batches_per_epoch):
+        if is_master(args) and (batch_count % 100 == 0 or batch == num_batches_per_epoch):
             logging.info(
                 f"Train Epoch: {epoch} [{batch_count}/{num_batches_per_epoch} ({((batch_count/num_batches_per_epoch) * 100.0):.2f}%)] "
                 f"Loss: {running_loss/100.0} "
