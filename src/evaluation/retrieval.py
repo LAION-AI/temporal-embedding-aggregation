@@ -76,7 +76,7 @@ def get_metrics(video_features, text_features, logit_scale):
     video_features and text_features gives you a matching video-text pair 
 
     - both model_video and model_text spit out NORMALIZED embeddings
-    
+
     Einops notation:
     n = num captions per video
     v = num videos
