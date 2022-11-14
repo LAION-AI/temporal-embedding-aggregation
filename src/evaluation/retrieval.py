@@ -65,14 +65,18 @@ def zero_pad_text_features(text_features, max_txt_len, dim_model=512):
 def get_metrics(video_features, text_features, logit_scale):
     ''' 
     Assumptions for this eval:
+
     - len(text_features) % len(video_features) == 0, i.e. there's a constant number 
     of captions per video (that constant can be 1).
+
     - video_features and text_features are arranged such that if we repeat
     each element of video_features N times along axis=0, with N being the nunber
     of captions per video, video_features[i] has ground truth label 
     text_features[i] for 0 <= i <= len(text_features), i.e. each index of
     video_features and text_features gives you a matching video-text pair 
+
     - both model_video and model_text spit out NORMALIZED embeddings
+    
     Einops notation:
     n = num captions per video
     v = num videos
