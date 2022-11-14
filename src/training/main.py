@@ -156,7 +156,6 @@ def main():
         else:
             logging.info(f"=> no checkpoint found at '{args.resume}'")
 
-
     for epoch in range(start_epoch, args.epochs):
         if is_master(args):
             logging.info(f'Start epoch {epoch}')
