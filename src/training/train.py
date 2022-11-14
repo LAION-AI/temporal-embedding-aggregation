@@ -34,7 +34,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
 
         optimizer.zero_grad()
 
-        text_embeddings, video_embeddings, logit_scale = model_video(toks, embeddings, prenorm=False, postnorm=False)
+        video_embeddings, text_embeddings, logit_scale  = model_video(embeddings, toks, prenorm=False, postnorm=False)
         loss = loss_func(video_embeddings, text_embeddings, logit_scale)
         running_loss += loss.item() # maybe this doesn't make sense
 
@@ -89,7 +89,7 @@ def evaluate(model_video, data, epoch, args, tb_writer=None):
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
 
-            text_embeddings, video_embeddings, logit_scale = model_video(toks, embeddings, prenorm=False, postnorm=False)
+            video_embeddings, text_embeddings, logit_scale = model_video(embeddings, toks, prenorm=False, postnorm=False)
 
             all_video_features.append(video_embeddings.cpu())
             all_text_features.append(text_embeddings.cpu())
