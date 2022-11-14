@@ -3,7 +3,6 @@ import json
 import logging
 
 import torch
-import open_clip
 from aggregation.aggregator_wrapper import VideoCLIP
 from . import * # TODO: only take models
 
@@ -32,9 +31,7 @@ def load_checkpoint(model, checkpoint_path, strict=True):
     return incompatible_keys
 
 
-def create_model(cfg_path, pretrained=''):
-    clip_model, _, preprocess = open_clip.create_model_and_transforms("ViT-H-14", pretrained="laion2b_s32b_b79k")
-
+def create_model(cfg_path, clip_model, pretrained=''):
     with open(cfg_path, "r") as f:
         model_dict = json.load(f)
 
