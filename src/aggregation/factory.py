@@ -52,5 +52,5 @@ def create_model(cfg_path, clip_model, pretrained=''):
         else:
             logging.warning(f'Pretrained weights ({pretrained}) not found for model {model_name}.')
             raise RuntimeError(f'Pretrained weights ({pretrained}) not found for model {model_name}.')
-    
+
     return VideoCLIP(model, clip_model), get_model_string(model_dict)

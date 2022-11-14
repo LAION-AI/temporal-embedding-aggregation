@@ -9,7 +9,6 @@ from torch import nn
 from training.loss import ClipLoss
 from .distributed import is_master
 
-
 def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_writer=None):
     device = torch.device(args.device)
     model_video.train()
@@ -26,16 +25,15 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
 
     running_loss = 0.0
     for  i, batch in enumerate(dataloader):
-        
         step = num_batches_per_epoch * epoch + i
         scheduler(step)
-        
+
         embeddings, toks = batch
         embeddings = embeddings.to(device, non_blocking=True)
         toks = toks.to(device, non_blocking=True)
 
         optimizer.zero_grad()
-        
+
         text_embeddings, video_embeddings, logit_scale = model_video(toks, embeddings, prenorm=False, postnorm=False)
         loss = loss_func(video_embeddings, text_embeddings, logit_scale)
         running_loss += loss.item() # maybe this doesn't make sense
@@ -64,7 +62,6 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
                     wandb.log({name: val, 'step': step}, step=step)
 
             running_loss = 0.0
-        break
 
 def evaluate(model_video, data, epoch, args, tb_writer=None):
     metrics = {}
@@ -88,20 +85,19 @@ def evaluate(model_video, data, epoch, args, tb_writer=None):
     all_video_features, all_text_features = [], []
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
-            
             embeddings, toks = batch
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
 
             text_embeddings, video_embeddings, logit_scale = model_video(toks, embeddings, prenorm=False, postnorm=False)
-            
+
             all_video_features.append(video_embeddings.cpu())
             all_text_features.append(text_embeddings.cpu())
             loss = loss_func(video_embeddings, text_embeddings, logit_scale.exp())
 
             count += 1
             metrics["val_loss"] += loss.item()
-            break
+
         val_metrics = get_metrics(
             video_features=torch.cat(all_video_features),
             text_features=torch.cat(all_text_features),
@@ -123,7 +119,6 @@ def evaluate(model_video, data, epoch, args, tb_writer=None):
             f"Eval epoch: {epoch} | "
             f"loss : {metrics['val_loss']} "
         )
-
 
 def get_metrics(video_features, text_features, logit_scale):
     metrics = {}
