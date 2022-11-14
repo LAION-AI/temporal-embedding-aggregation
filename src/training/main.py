@@ -95,11 +95,7 @@ def main():
 
     # Create model:
     random_seed(args.seed)
-
-    clip_model, _, preprocess = open_clip.create_model_and_transforms("ViT-H-14", pretrained="laion2b_s32b_b79k")
-    
-
-    model_video, model_str = create_model(args.model, clip_model)
+    model_video, model_str = create_model(args.model)
     model_video.to(args.device)
 
     logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
