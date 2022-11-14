@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from einops import rearrange
 
-def retrieval_evaluation(model_video, model_text, data, multicaption=False):
+def retrieval_evaluation(model_video, data, multicaption=False):
     if type(data) == dict:
         dataloader = data["val"].dataloader
     else:
@@ -31,8 +31,7 @@ def retrieval_evaluation(model_video, model_text, data, multicaption=False):
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
 
-            video_embeddings = model_video(embeddings)
-            text_embeddings = model_text(toks)
+            video_embeddings, text_embeddings, logit_scale = model_video(embeddings, toks, prenorm=True, postnorm=True)
 
             all_video_features.append(video_embeddings.cpu())
             all_text_features.append(text_embeddings.cpu())
@@ -61,7 +60,6 @@ def zero_pad_text_features(text_features, max_txt_len, dim_model=512):
 
     return out
     
-
 def get_metrics(video_features, text_features, logit_scale):
     ''' 
     Assumptions for this eval:
