@@ -31,7 +31,7 @@ def load_checkpoint(model, checkpoint_path, strict=True):
     return incompatible_keys
 
 
-def create_model(cfg_path, pretrained=''):
+def create_model(cfg_path, clip_model, pretrained=''):
     with open(cfg_path, "r") as f:
         model_dict = json.load(f)
 
@@ -53,4 +53,4 @@ def create_model(cfg_path, pretrained=''):
             logging.warning(f'Pretrained weights ({pretrained}) not found for model {model_name}.')
             raise RuntimeError(f'Pretrained weights ({pretrained}) not found for model {model_name}.')
     
-    return VideoCLIP(model), get_model_string(model_dict)
+    return VideoCLIP(model, clip_model), get_model_string(model_dict)

@@ -10,7 +10,7 @@ from training.loss import ClipLoss
 from .distributed import is_master
 
 
-def train_one_epoch(model_video, model_text, data, epoch, optimizer, scheduler, args, tb_writer=None):
+def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_writer=None):
     device = torch.device(args.device)
     model_video.train()
     loss_func = ClipLoss(
@@ -36,10 +36,7 @@ def train_one_epoch(model_video, model_text, data, epoch, optimizer, scheduler, 
 
         optimizer.zero_grad()
         
-        video_embeddings, logit_scale = model_video(embeddings)
-        with torch.no_grad():
-            text_embeddings = model_text(toks).float()
-            
+        text_embeddings, video_embeddings, logit_scale = model_video(toks, embeddings, prenorm=False, postnorm=False)
         loss = loss_func(video_embeddings, text_embeddings, logit_scale)
         running_loss += loss.item() # maybe this doesn't make sense
 
@@ -48,7 +45,7 @@ def train_one_epoch(model_video, model_text, data, epoch, optimizer, scheduler, 
         optimizer.step()
 
         batch_count = i + 1
-        if is_master(args) and (batch_count % 100 == 0 or batch == num_batches_per_epoch):
+        if is_master(args) and (batch_count % 100 == 1 or batch == num_batches_per_epoch):
             logging.info(
                 f"Train Epoch: {epoch} [{batch_count}/{num_batches_per_epoch} ({((batch_count/num_batches_per_epoch) * 100.0):.2f}%)] "
                 f"Loss: {running_loss/100.0} "
@@ -69,7 +66,7 @@ def train_one_epoch(model_video, model_text, data, epoch, optimizer, scheduler, 
             running_loss = 0.0
         break
 
-def evaluate(model_video, model_text, data, epoch, args, tb_writer=None):
+def evaluate(model_video, data, epoch, args, tb_writer=None):
     metrics = {}
     if not is_master(args):
         return metrics
@@ -96,16 +93,15 @@ def evaluate(model_video, model_text, data, epoch, args, tb_writer=None):
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
 
-            video_embeddings, logit_scale = model_video(embeddings)
-            text_embeddings = model_text(toks).float()
-
+            text_embeddings, video_embeddings, logit_scale = model_video(toks, embeddings, prenorm=False, postnorm=False)
+            
             all_video_features.append(video_embeddings.cpu())
             all_text_features.append(text_embeddings.cpu())
             loss = loss_func(video_embeddings, text_embeddings, logit_scale.exp())
 
             count += 1
             metrics["val_loss"] += loss.item()
-
+            break
         val_metrics = get_metrics(
             video_features=torch.cat(all_video_features),
             text_features=torch.cat(all_text_features),
