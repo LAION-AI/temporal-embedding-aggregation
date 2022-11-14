@@ -46,9 +46,9 @@ class VideoCLIP(nn.Module):
         x = F.normalize(x.float(), dim=-1) if prenorm else x
         x = self.aggregator(x)
         x = F.normalize(x.float(), dim=-1) if postnorm else x
-        return x, self.logit_scale.exp()
+        return x
 
     def forward(self, video_embeddings, toks, prenorm=True, postnorm=True):
         text_embeddings = self.encode_text(toks, postnorm=postnorm)
-        video_embeddings, logit_scale = self.encode_video(video_embeddings, prenorm=prenorm, postnorm=postnorm)
-        return video_embeddings, text_embeddings, logit_scale
+        video_embeddings = self.encode_video(video_embeddings, prenorm=prenorm, postnorm=postnorm)
+        return video_embeddings, text_embeddings, self.logit_scale.exp()
