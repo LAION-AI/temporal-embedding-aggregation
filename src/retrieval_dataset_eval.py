@@ -1,9 +1,4 @@
-import os
-import torch
-import clip
-import numpy as np
 import open_clip
-import pandas as pd
 
 from clip_video_encode.dataset import EmbeddingWebDatasetReader
 from aggregation.mean import Mean
