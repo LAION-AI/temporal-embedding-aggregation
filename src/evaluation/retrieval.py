@@ -31,7 +31,7 @@ def retrieval_evaluation(model_video, data, multicaption=False):
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
 
-            video_embeddings, text_embeddings, _ = model_video(embeddings, toks, prenorm=True, postnorm=True)
+            video_embeddings, text_embeddings, _ = model_video(embeddings, toks, prenorm=False, postnorm=True)
 
             all_video_features.append(video_embeddings.cpu())
             all_text_features.append(text_embeddings.cpu())
