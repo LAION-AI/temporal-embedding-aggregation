@@ -20,6 +20,7 @@ def evaluate_datasets_and_ckpts(eval_data):
             enable_text=False,
             enable_meta=True
         )
+        print(next(iter(val_reader)))
         metrics = retrieval_evaluation(ckpt, val_reader, multicaption)
         print(metrics)
 
