@@ -28,10 +28,10 @@ vc_oc_h14 = VideoCLIP(Mean(), oc_h14)
 vc_oai_b32 = VideoCLIP(Mean(), oai_b32)
 
 eval_data = [
-    (vc_oc_h14, 'pipe:aws s3 cp s3://s-laion/msr_vtt/clip_msr_vtt/oc_h14/test/{000000000..000000007}.tar', True),
+    (vc_oc_h14, 'pipe:aws s3 cp s3://s-laion/msr_vtt/clip_msr_vtt/oc_h14/test/{000000000..000000007}.tar -', True),
     (vc_oai_b32, 'pipe:aws s3 cp s3://s-laion/msr_vtt/clip_msr_vtt/oai_b32/test/{000000000..000000007}.tar -', True),
-    (vc_oc_h14, 'pipe:aws s3 cp s3://s-laion/msvd/clip_msvd/oc_h14/test/000000000.tar', True),
-    (vc_oai_b32, 'pipe:aws s3 cp s3://s-laion/msvd/clip_msvd/oai_b32/test/000000000.tar', True),
+    (vc_oc_h14, 'pipe:aws s3 cp s3://s-laion/msvd/clip_msvd/oc_h14/test/000000000.tar -', True),
+    (vc_oai_b32, 'pipe:aws s3 cp s3://s-laion/msvd/clip_msvd/oai_b32/test/000000000.tar -', True),
 ]
 
 evaluate_datasets_and_ckpts(eval_data)
