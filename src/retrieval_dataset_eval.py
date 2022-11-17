@@ -18,7 +18,7 @@ def evaluate_datasets_and_ckpts(eval_data):
         assert isinstance(ckpt, VideoCLIP)
         val_reader = EmbeddingWebDatasetReader(
             tar,
-            standard_seq_len=1000,
+            standard_seq_len=-1,
             batch_size=1,
             num_prepro_workers=8,
             to_tensor=False,
