@@ -33,7 +33,7 @@ vc_oc_h14 = VideoCLIP(Mean(), oc_h14)
 vc_oai_b32 = VideoCLIP(Mean(), oai_b32)
 
 eval_data = [
-    (vc_oc_h14, 'pipe:aws s3 cp s3://s-laion/msr_vtt/clip_msr_vtt/oc_h14/test_fix/test/{000000000..000000007}.tar -', True),
+    (vc_oc_h14, 'pipe:aws s3 cp s3://s-laion/msr_vtt/clip_msr_vtt/oc_h14/test_fix/{000000000..000000007}.tar -', True),
     (vc_oai_b32, 'CLIP-MSR-VTT/data/oai_b32/test_full_fps/{000000000..000000007}.tar', True),
     (vc_oc_h14, 'CLIP-MSVD/data/oc_h14/test/000000000.tar', True),
     (vc_oai_b32, 'CLIP-MSVD/data/oai_b32/test/000000000.tar', True),
