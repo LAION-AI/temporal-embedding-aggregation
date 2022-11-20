@@ -18,13 +18,13 @@ def center_frame(seq):
 
 
 if __name__ == "__main__":
-    VAL_TARS = "pipe:aws s3 cp s3://s-laion/msr_vtt/clip_msr_vtt/oc_h14/test_fix/{000000000..000000007}.tar -"
-    # VAL_TARS = "/fsx/iejmac/datasets/msr-vtt/fix/dataset/{000000000..000000007}.tar"
+    # VAL_TARS = "pipe:aws s3 cp s3://s-laion/msr_vtt/clip_msr_vtt/oc_h14/test_fix/{000000000..000000007}.tar -"
+    VAL_TARS = "/fsx/iejmac/datasets/msr-vtt/fix/dataset/{000000000..000000059}.tar"
 
     val_urls = VAL_TARS 
     val_reader = EmbeddingWebDatasetReader(
         val_urls,
-        standard_seq_len=200,
+        standard_seq_len=-1,
         batch_size=1,
         num_prepro_workers=6,
         to_tensor=False,
@@ -38,8 +38,8 @@ if __name__ == "__main__":
     # checkpoint = f"logs/{config}-double_normalized/checkpoints/epoch_4.pt"
     # checkpoint = "logs/H14_depth_run_0-double_normalized_remove_mean/checkpoints/epoch_3.pt"
 
-    model_config = "aggregation/model_configs/mlp_mean.json"
-    checkpoint = "logs/stupid-mlp_mean/checkpoints/epoch_1.pt"
+    # model_config = "aggregation/model_configs/mlp_mean.json"
+    # checkpoint = "logs/stupid-mlp_mean/checkpoints/epoch_1.pt"
 
     # model_config = "aggregation/model_configs/wavg.json"
     # checkpoint = "logs/stupid-wavg/checkpoints/epoch_4.pt"
@@ -54,9 +54,9 @@ if __name__ == "__main__":
     print(n_params / 1e6)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model, _, preprocess = open_clip.create_model_and_transforms("ViT-H-14", pretrained="laion2b_s32b_b79k", device=device)
+    # model, _, preprocess = open_clip.create_model_and_transforms("ViT-H-14", pretrained="laion2b_s32b_b79k", device=device)
     # model, _, preprocess = open_clip.create_model_and_transforms("ViT-B-32", pretrained="laion2b_s34b_b79k", device=device)
-    # model, _, preprocess = open_clip.create_model_and_transforms("ViT-B-32", pretrained="openai", device=device)
+    model, _, preprocess = open_clip.create_model_and_transforms("ViT-B-32", pretrained="openai", device=device)
     model_text = model.encode_text
 
     model_video.to(device)

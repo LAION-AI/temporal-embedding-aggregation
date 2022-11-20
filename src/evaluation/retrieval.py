@@ -22,8 +22,8 @@ def retrieval_evaluation(model_video, model_text, data, multicaption=False):
             embeddings = batch["embeddings"]
 
             # TODO: REMOVE IF NOT WORK
-            embeddings -= mean_emb
-            embeddings *= batch["zero_mask"][..., None]
+            # embeddings -= mean_emb
+            # embeddings *= batch["zero_mask"][..., None]
 
             embeddings = embeddings.type(torch.float32)
             embeddings = F.normalize(embeddings, dim=-1)
@@ -100,6 +100,9 @@ def get_metrics(video_features, text_features, logit_scale):
     '''
     metrics = {}
     video_features = video_features.float()
+
+    print(video_features.shape)
+    print(text_features.shape)
 
     text_features = text_features.float()
     
