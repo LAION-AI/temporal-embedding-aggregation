@@ -56,10 +56,12 @@ class DataInfo:
 
 # Preprocess/read funcs:
 def preprocess_txt(text):
+    '''
     d = json.loads(text)
     t = d["title"]
     return tokenize(t)[0]
-    # return tokenize([str(text)])[0]
+    '''
+    return tokenize([str(text)])[0]
 
 def standardize_embedding_shape(emb, seq_len):
     if len(emb) > seq_len:
@@ -303,8 +305,8 @@ def get_wds_dataset(args, emb_transform, is_train, epoch=0, floor=False):
     preprocess_emb = get_preprocess_emb(emb_transform, args.sequence_length)
     pipeline.extend([
         wds.select(filter_no_caption),
-        # wds.rename(embeddings="npy", text="txt"),
-        wds.rename(embeddings="npy", text="json"),
+        wds.rename(embeddings="npy", text="txt"),
+        # wds.rename(embeddings="npy", text="json"),
         wds.map_dict(embeddings=preprocess_emb, text=preprocess_txt),
         wds.to_tuple("embeddings", "text"),
         wds.batched(args.batch_size, partial=not is_train),

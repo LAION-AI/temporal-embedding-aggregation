@@ -43,7 +43,7 @@ if __name__ == "__main__":
     # checkpoint = "logs/stupid-mlp_mean/checkpoints/epoch_1.pt"
 
     model_config = "aggregation/model_configs/wavg.json"
-    checkpoint = "logs/stupid_wavg/checkpoints/epoch_1.pt"
+    checkpoint = "logs/stupid_wavg_wv/checkpoints/epoch_20.pt"
 
     # model_video, model_str = create_model(model_config, pretrained=checkpoint)
     # model_video, model_str = create_model(model_config)

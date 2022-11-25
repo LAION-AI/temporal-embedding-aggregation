@@ -32,8 +32,12 @@ def load_checkpoint(model, checkpoint_path, strict=True):
     return incompatible_keys
 
 
-def create_model(cfg_path, pretrained=''):
-    clip_model, _, preprocess = open_clip.create_model_and_transforms("ViT-H-14", pretrained="laion2b_s32b_b79k")
+def create_model(cfg_path, device='cpu', pretrained=''):
+    clip_model, _, preprocess = open_clip.create_model_and_transforms("ViT-H-14", pretrained="laion2b_s32b_b79k", device=device)
+
+    for n, p in clip_model.named_parameters():
+        p.requires_grad = False
+    
 
     with open(cfg_path, "r") as f:
         model_dict = json.load(f)
@@ -41,6 +45,7 @@ def create_model(cfg_path, pretrained=''):
     model_name = model_dict["type"]
     model_cls = eval(model_name)
     model = model_cls(**model_dict["args"])
+    model.to(device)
 
     # TODO: implement getting pretrained from releases like open_clip
     pretrained_cfg = {}
@@ -56,4 +61,5 @@ def create_model(cfg_path, pretrained=''):
             logging.warning(f'Pretrained weights ({pretrained}) not found for model {model_name}.')
             raise RuntimeError(f'Pretrained weights ({pretrained}) not found for model {model_name}.')
 
-    return VideoCLIP(model, clip_model), get_model_string(model_dict)
+    mv = VideoCLIP(model, clip_model, device=device)
+    return mv, get_model_string(model_dict)

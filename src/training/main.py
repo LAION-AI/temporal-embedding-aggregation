@@ -95,11 +95,7 @@ def main():
 
     # Create model:
     random_seed(args.seed)
-    model_video, model_str = create_model(args.model)
-    model_video.to(args.device)
-    model_video.clip.to(args.device)
-
-    logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+    model_video, model_str = create_model(args.model, device=device)
 
     # Make model distributed
     if args.distributed and not args.horovod:
@@ -139,7 +135,7 @@ def main():
     if args.resume is not None:
         # NOTE: resuming doesn't work with torch >1.11.0 yet (https://github.com/pytorch/pytorch/issues/80809)
         if os.path.isfile(args.resume):
-            checkpoint = torch.load(args.resume, map_location=args.device)
+            checkpoint = torch.load(args.resume, map_location=device)
             if 'epoch' in checkpoint:
                 # resuming a train checkpoint w/ epoch and optimizer state
                 start_epoch = checkpoint["epoch"]
