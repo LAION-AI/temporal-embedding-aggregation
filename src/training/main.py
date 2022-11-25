@@ -97,6 +97,7 @@ def main():
     random_seed(args.seed)
     model_video, model_str = create_model(args.model)
     model_video.to(args.device)
+    model_video.clip.to(args.device)
 
     logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 

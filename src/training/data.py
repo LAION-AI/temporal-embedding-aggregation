@@ -56,11 +56,14 @@ class DataInfo:
 
 # Preprocess/read funcs:
 def preprocess_txt(text):
-    return tokenize([str(text)])[0]
+    d = json.loads(text)
+    t = d["title"]
+    return tokenize(t)[0]
+    # return tokenize([str(text)])[0]
 
 def standardize_embedding_shape(emb, seq_len):
     if len(emb) > seq_len:
-        print(f"Warning: Raw embedding is longer than standard sequence length ({len(emb)} > {seq_len})")
+        # print(f"Warning: Raw embedding is longer than standard sequence length ({len(emb)} > {seq_len})")
         emb = emb[:seq_len]
     pad = np.zeros((seq_len - len(emb), emb.shape[1]), dtype=emb.dtype)
     zero_mask = np.concatenate([np.ones(len(emb)), np.zeros(len(pad))])
@@ -114,7 +117,8 @@ def count_samples(dataloader):
 
 
 def filter_no_caption(sample):
-    return 'txt' in sample
+    # return 'txt' in sample
+    return 'json' in sample
 
 
 def log_and_continue(exn):
@@ -299,7 +303,8 @@ def get_wds_dataset(args, emb_transform, is_train, epoch=0, floor=False):
     preprocess_emb = get_preprocess_emb(emb_transform, args.sequence_length)
     pipeline.extend([
         wds.select(filter_no_caption),
-        wds.rename(embeddings="npy", text="txt"),
+        # wds.rename(embeddings="npy", text="txt"),
+        wds.rename(embeddings="npy", text="json"),
         wds.map_dict(embeddings=preprocess_emb, text=preprocess_txt),
         wds.to_tuple("embeddings", "text"),
         wds.batched(args.batch_size, partial=not is_train),

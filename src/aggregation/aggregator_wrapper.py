@@ -6,6 +6,7 @@ import numpy as np
 class CLIPTxt(torch.nn.Module):
     def __init__(self, clip):
         super().__init__()
+        self.clip = clip
         self.token_embedding = clip.token_embedding
         self.positional_embedding = clip.positional_embedding
         self.transformer = clip.transformer
@@ -34,7 +35,9 @@ class VideoCLIP(nn.Module):
     def __init__(self, aggregator, clip_model):
         super().__init__()
         self.aggregator = aggregator
-        self.model_text = CLIPTxt(clip_model)
+        # self.model_text = CLIPTxt(clip_model)
+        self.clip = clip_model
+        self.model_text = clip_model.encode_text
         self.logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
     def encode_text(self, x, postnorm=True):
