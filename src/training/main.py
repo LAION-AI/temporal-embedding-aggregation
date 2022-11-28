@@ -5,7 +5,7 @@ import wandb
 
 from datetime import datetime
 
-import clip
+import open_clip
 import numpy as np
 import torch
 import torch.utils.tensorboard as tensorboard
@@ -33,9 +33,26 @@ def random_seed(seed=42, rank=0):
 class CLIPTxt(torch.nn.Module):
     def __init__(self, clip):
         super().__init__()
-        self.model = clip
-    def forward(self, x):
-        return self.model.encode_text(x)
+        self.token_embedding = clip.token_embedding
+        self.positional_embedding = clip.positional_embedding
+        self.transformer = clip.transformer
+        self.ln_final = clip.ln_final
+        self.text_projection = clip.text_projection
+        self.attn_mask = clip.attn_mask
+    def forward(self, text):
+        x = self.token_embedding(text)  # [batch_size, n_ctx, d_model]
+
+        x = x + self.positional_embedding
+        x = x.permute(1, 0, 2)  # NLD -> LND
+        x = self.transformer(x, attn_mask=self.attn_mask)
+        x = x.permute(1, 0, 2)  # LND -> NLD
+        x = self.ln_final(x)
+
+        # x.shape = [batch_size, n_ctx, transformer.width]
+        # take features from the eot embedding (eot_token is the highest number in each sequence)
+        x = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
+
+        return x
 
 
 def main():
@@ -63,7 +80,7 @@ def main():
         os.makedirs(log_base_path, exist_ok=True)
         log_filename = "out.log"
         args.log_path = os.path.join(log_base_path, log_filename)
-        if os.path.exists(args.log_path):
+        if not args.resume and os.path.exists(args.log_path):
             print(
                 "Error. Experiment already exists. Use --name {} to specify a new experiment."
             )
@@ -106,8 +123,10 @@ def main():
     model_video, model_str = create_model(args.model)
     model_video.to(args.device)
 
-    clip_model, preprocess = clip.load("ViT-B/32", device=args.device)
+    clip_model, _, preprocess = open_clip.create_model_and_transforms("ViT-H-14", pretrained="laion2b_s32b_b79k")
     model_text = CLIPTxt(clip_model)
+    model_text.attn_mask = model_text.attn_mask.to(args.device)
+    model_text = model_text.to(args.device)
     logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
     # Make model distributed
@@ -153,7 +172,7 @@ def main():
                 # resuming a train checkpoint w/ epoch and optimizer state
                 start_epoch = checkpoint["epoch"]
                 sd = checkpoint["state_dict"]
-                if next(iter(sd.items()))[0].startswith('module'):
+                if not args.distributed and next(iter(sd.items()))[0].startswith('module'):
                     sd = {k[len('module.'):]: v for k, v in sd.items()}
                 model_video.load_state_dict(sd)
                 if optimizer is not None:

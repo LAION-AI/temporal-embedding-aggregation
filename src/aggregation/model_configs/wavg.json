@@ -1,0 +1,6 @@
+{
+        "type": "WAvg",
+        "args": {
+                "seq_len": 200
+        }
+}

@@ -63,7 +63,7 @@ def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer
                 if tb_writer is not None:
                     tb_writer.add_scalar(name, val, step)
                 if args.report_to == "wandb":
-                    wandb.log({name: val, 'step': step})
+                    wandb.log({name: val, 'step': step}, step=step)
 
             running_loss = 0.0
 
@@ -119,7 +119,7 @@ def evaluate(model_video, model_text, logit_scale, data, epoch, args, tb_writer=
         if tb_writer is not None:
             tb_writer.add_scalar(name, val, epoch)
         if args.report_to == "wandb":
-            wandb.log({name: val, 'epoch': epoch})
+            wandb.log({name: val, 'epoch': epoch}, step=epoch)
 
     if is_master(args):
         logging.info(

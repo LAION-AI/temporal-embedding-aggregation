@@ -1,0 +1,7 @@
+{
+        "type": "MLPMean",
+        "args": {
+                "dim": 1024,
+                "proj_dim": 1024 
+        }
+}
