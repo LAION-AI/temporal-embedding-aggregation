@@ -3,9 +3,9 @@ import json
 import logging
 
 import torch
-
+from aggregation.aggregator_wrapper import VideoCLIP
+import open_clip
 from . import * # TODO: only take models
-
 
 def get_model_string(m_dict):
     s = m_dict["type"]
@@ -33,6 +33,8 @@ def load_checkpoint(model, checkpoint_path, strict=True):
 
 
 def create_model(cfg_path, pretrained=''):
+    clip_model, _, preprocess = open_clip.create_model_and_transforms("ViT-H-14", pretrained="laion2b_s32b_b79k")
+
     with open(cfg_path, "r") as f:
         model_dict = json.load(f)
 
@@ -54,4 +56,4 @@ def create_model(cfg_path, pretrained=''):
             logging.warning(f'Pretrained weights ({pretrained}) not found for model {model_name}.')
             raise RuntimeError(f'Pretrained weights ({pretrained}) not found for model {model_name}.')
 
-    return model, get_model_string(model_dict)
+    return VideoCLIP(model, clip_model), get_model_string(model_dict)

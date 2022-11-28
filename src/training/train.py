@@ -9,8 +9,7 @@ from torch import nn
 from training.loss import ClipLoss
 from .distributed import is_master
 
-
-def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer, scheduler, args, tb_writer=None):
+def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_writer=None):
     device = torch.device(args.device)
     model_video.train()
     loss_func = ClipLoss(
@@ -35,11 +34,8 @@ def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer
 
         optimizer.zero_grad()
 
-        video_embeddings = model_video(embeddings)
-        with torch.no_grad():
-            text_embeddings = model_text(toks).float()
-
-        loss = loss_func(video_embeddings, text_embeddings, logit_scale.exp())
+        video_embeddings, text_embeddings, logit_scale  = model_video(embeddings, toks, prenorm=True, postnorm=True)
+        loss = loss_func(video_embeddings, text_embeddings, logit_scale)
         running_loss += loss.item() # maybe this doesn't make sense
 
         loss.backward()
@@ -67,8 +63,7 @@ def train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer
 
             running_loss = 0.0
 
-
-def evaluate(model_video, model_text, logit_scale, data, epoch, args, tb_writer=None):
+def evaluate(model_video, data, epoch, args, tb_writer=None):
     metrics = {}
     if not is_master(args):
         return metrics
@@ -90,13 +85,11 @@ def evaluate(model_video, model_text, logit_scale, data, epoch, args, tb_writer=
     all_video_features, all_text_features = [], []
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
-
             embeddings, toks = batch
             embeddings = embeddings.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
 
-            video_embeddings = model_video(embeddings)
-            text_embeddings = model_text(toks).float()
+            video_embeddings, text_embeddings, logit_scale = model_video(embeddings, toks, prenorm=True, postnorm=True)
 
             all_video_features.append(video_embeddings.cpu())
             all_text_features.append(text_embeddings.cpu())
@@ -126,7 +119,6 @@ def evaluate(model_video, model_text, logit_scale, data, epoch, args, tb_writer=
             f"Eval epoch: {epoch} | "
             f"loss : {metrics['val_loss']} "
         )
-
 
 def get_metrics(video_features, text_features, logit_scale):
     metrics = {}

@@ -30,31 +30,6 @@ def random_seed(seed=42, rank=0):
     random.seed(seed + rank)
 
 
-class CLIPTxt(torch.nn.Module):
-    def __init__(self, clip):
-        super().__init__()
-        self.token_embedding = clip.token_embedding
-        self.positional_embedding = clip.positional_embedding
-        self.transformer = clip.transformer
-        self.ln_final = clip.ln_final
-        self.text_projection = clip.text_projection
-        self.attn_mask = clip.attn_mask
-    def forward(self, text):
-        x = self.token_embedding(text)  # [batch_size, n_ctx, d_model]
-
-        x = x + self.positional_embedding
-        x = x.permute(1, 0, 2)  # NLD -> LND
-        x = self.transformer(x, attn_mask=self.attn_mask)
-        x = x.permute(1, 0, 2)  # LND -> NLD
-        x = self.ln_final(x)
-
-        # x.shape = [batch_size, n_ctx, transformer.width]
-        # take features from the eot embedding (eot_token is the highest number in each sequence)
-        x = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
-
-        return x
-
-
 def main():
     args = parse_args()
 
@@ -123,10 +98,6 @@ def main():
     model_video, model_str = create_model(args.model)
     model_video.to(args.device)
 
-    clip_model, _, preprocess = open_clip.create_model_and_transforms("ViT-H-14", pretrained="laion2b_s32b_b79k")
-    model_text = CLIPTxt(clip_model)
-    model_text.attn_mask = model_text.attn_mask.to(args.device)
-    model_text = model_text.to(args.device)
     logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
     # Make model distributed
@@ -185,15 +156,14 @@ def main():
         else:
             logging.info(f"=> no checkpoint found at '{args.resume}'")
 
-
     for epoch in range(start_epoch, args.epochs):
         if is_master(args):
             logging.info(f'Start epoch {epoch}')
-        train_one_epoch(model_video, model_text, logit_scale, data, epoch, optimizer, scheduler, args, writer)
+        train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, writer)
         completed_epoch = epoch + 1
 
         if 'val' in data:
-            evaluate(model_video, model_text, logit_scale, data, epoch, args, writer)
+            evaluate(model_video, data, epoch, args, writer)
 
         # Save checkpoint
         if is_master(args):
