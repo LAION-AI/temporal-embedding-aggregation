@@ -9,7 +9,7 @@ from torch import nn
 from training.loss import ClipLoss
 from .distributed import is_master
 
-def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_writer=None):
+def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_writer=None, train_images=False):
     device = torch.device(args.device)
     model_video.train()
     loss_func = ClipLoss(
@@ -28,19 +28,36 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         step = num_batches_per_epoch * epoch + i
         scheduler(step)
 
-        embeddings, toks = batch
+        if train_images:
+            (embeddings, toks), (img_embeddings, img_toks) = batch
+            img_embeddings = img_embeddings.to(device, non_blocking=True)
+            img_toks = img_toks.to(device, non_blocking=True)
+        else:
+            embeddings, toks = batch
+            
         embeddings = embeddings.to(device, non_blocking=True)
         toks = toks.to(device, non_blocking=True)
 
         optimizer.zero_grad()
 
-        video_embeddings, text_embeddings, logit_scale  = model_video(embeddings, toks, prenorm=True, postnorm=True)
+        video_embeddings, text_embeddings, logit_scale = model_video(embeddings, toks, prenorm=True, postnorm=True)
         loss = loss_func(video_embeddings, text_embeddings, logit_scale)
         running_loss += loss.item() # maybe this doesn't make sense
 
         loss.backward()
         nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
         optimizer.step()
+
+        if train_images:
+            optimizer.zero_grad()
+
+            video_embeddings, text_embeddings, logit_scale = model_video(img_embeddings, img_toks, prenorm=True, postnorm=True)
+            loss = loss_func(video_embeddings, text_embeddings, logit_scale)
+            running_loss += loss.item() # maybe this doesn't make sense
+
+            loss.backward()
+            nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
+            optimizer.step()
 
         batch_count = i + 1
         if is_master(args) and (batch_count % 100 == 0 or batch == num_batches_per_epoch):
