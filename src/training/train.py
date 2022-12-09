@@ -31,12 +31,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         step = num_batches_per_epoch * epoch + i
         scheduler(step)
 
-        if args.image_data:
-            img_embeddings, img_toks = next(img_iter)
-            img_embeddings = img_embeddings.to(device, non_blocking=True)
-            img_toks = img_toks.to(device, non_blocking=True)
-        else:
-            embeddings, toks = batch
+        embeddings, toks = batch
 
         embeddings = embeddings.to(device, non_blocking=True)
         toks = toks.to(device, non_blocking=True)
@@ -53,6 +48,10 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
 
         if args.image_data:
             optimizer.zero_grad()
+
+            img_embeddings, img_toks = next(img_iter)
+            img_embeddings = img_embeddings.to(device, non_blocking=True)
+            img_toks = img_toks.to(device, non_blocking=True)
 
             video_embeddings, text_embeddings, logit_scale = model_video(img_embeddings, img_toks, prenorm=True, postnorm=True)
             loss = loss_func(video_embeddings, text_embeddings, logit_scale)
