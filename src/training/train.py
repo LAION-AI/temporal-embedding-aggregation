@@ -9,7 +9,7 @@ from torch import nn
 from training.loss import ClipLoss
 from .distributed import is_master
 
-def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_writer=None, train_images=False):
+def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_writer=None):
     device = torch.device(args.device)
     model_video.train()
     loss_func = ClipLoss(
@@ -21,6 +21,9 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         use_horovod=False,
     )
     dataloader = data["train"].dataloader
+    if args.image_data:
+        dataloader_images = data["images"].dataloader
+        img_iter = iter(dataloader_images)
     num_batches_per_epoch = dataloader.num_batches
 
     running_loss = 0.0
@@ -28,13 +31,13 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         step = num_batches_per_epoch * epoch + i
         scheduler(step)
 
-        if train_images:
-            (embeddings, toks), (img_embeddings, img_toks) = batch
+        if args.image_data:
+            img_embeddings, img_toks = next(img_iter)
             img_embeddings = img_embeddings.to(device, non_blocking=True)
             img_toks = img_toks.to(device, non_blocking=True)
         else:
             embeddings, toks = batch
-            
+
         embeddings = embeddings.to(device, non_blocking=True)
         toks = toks.to(device, non_blocking=True)
 
@@ -48,12 +51,12 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
         optimizer.step()
 
-        if train_images:
+        if args.image_data:
             optimizer.zero_grad()
 
             video_embeddings, text_embeddings, logit_scale = model_video(img_embeddings, img_toks, prenorm=True, postnorm=True)
             loss = loss_func(video_embeddings, text_embeddings, logit_scale)
-            running_loss += loss.item() # maybe this doesn't make sense
+            running_loss += loss.item()
 
             loss.backward()
             nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
