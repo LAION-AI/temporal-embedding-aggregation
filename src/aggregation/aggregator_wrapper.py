@@ -13,8 +13,6 @@ class CLIPTxt(torch.nn.Module):
         self.text_projection = clip.text_projection
         self.attn_mask = clip.attn_mask
 
-        for parameter in self.parameters():
-            parameter.to('cuda:0')
     def forward(self, text):
         x = self.token_embedding(text)  # [batch_size, n_ctx, d_model]
 

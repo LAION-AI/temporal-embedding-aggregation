@@ -23,8 +23,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         use_horovod=False,
     )
 
-    model_video = model_video.to(device)
-    
+    model_video.cuda()
     dataloader = data["train"].dataloader
     
     if args.image_data:
