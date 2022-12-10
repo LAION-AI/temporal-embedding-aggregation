@@ -39,7 +39,7 @@ class VideoCLIP(nn.Module):
 
     def encode_text(self, x, postnorm=True):
         print(x.device)
-        print(self.model_text.device)
+        print(self.model_text.transformer.device)
         with torch.no_grad():
             text_embeddings = self.model_text(x).float()
         return F.normalize(text_embeddings, dim=-1) if postnorm else text_embeddings
