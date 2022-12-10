@@ -54,7 +54,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
 
         optimizer.zero_grad()
 
-        video_embeddings, text_embeddings, logit_scale = model_video(embeddings, toks, prenorm=True, postnorm=True)
+        video_embeddings, text_embeddings, logit_scale = model_video(embeddings.to('cuda:0'), toks.to('cuda:0'), prenorm=True, postnorm=True)
         loss = loss_func(video_embeddings, text_embeddings, logit_scale)
         running_loss += loss.item() # maybe this doesn't make sense
 
