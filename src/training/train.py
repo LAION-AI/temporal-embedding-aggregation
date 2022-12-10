@@ -50,8 +50,8 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
 
         embeddings, toks = batch
 
-        embeddings = embeddings.to(args.device, non_blocking=True)
-        toks = toks.to(args.device, non_blocking=True)
+        embeddings = embeddings.to(device, non_blocking=True)
+        toks = toks.to(device, non_blocking=True)
         
         optimizer.zero_grad()
 
