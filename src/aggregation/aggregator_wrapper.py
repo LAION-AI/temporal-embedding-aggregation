@@ -12,6 +12,9 @@ class CLIPTxt(torch.nn.Module):
         self.ln_final = clip.ln_final
         self.text_projection = clip.text_projection
         self.attn_mask = clip.attn_mask
+
+        for parameter in self.parameters():
+            parameter.to('cuda:0')
     def forward(self, text):
         x = self.token_embedding(text)  # [batch_size, n_ctx, d_model]
 
@@ -35,11 +38,10 @@ class VideoCLIP(nn.Module):
         super().__init__()
         self.aggregator = aggregator
         self.model_text = CLIPTxt(clip_model)
+        self.model_text.to('cuda:0')
         self.logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
     def encode_text(self, x, postnorm=True):
-        print(x.device)
-        print(next(self.model_text.transformer.parameters()).device)
         with torch.no_grad():
             text_embeddings = self.model_text(x).float()
         return F.normalize(text_embeddings, dim=-1) if postnorm else text_embeddings
