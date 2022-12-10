@@ -67,13 +67,13 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             optimizer.zero_grad()
             img_embeddings, _ = next(img_iter)
             img_embeddings = torch.tensor(img_embeddings)
-            embeddings = torch.zeros_like(video_embeddings)
+            embeddings = torch.zeros(128, 200, 1024)
             embeddings[:, 0, :] = img_embeddings
             embeddings = embeddings.to(device, non_blocking=True)
 
             text_embeddings, _ = next(text_iter)
             text_embeddings = torch.tensor(text_embeddings)
-            txt_emb = torch.zeros_like(text_embeddings)
+            txt_emb = torch.zeros(128, 200, 1024)
             txt_emb[:, 0, :] = text_embeddings
             txt_emb = txt_emb.to(device, non_blocking=True)
 
