@@ -21,6 +21,7 @@ class CLIPTxt(torch.nn.Module):
         print(x.device)
         x = x.permute(1, 0, 2)  # NLD -> LND
         print(x.device)
+        print(self.attn_mask.device)
         x = self.transformer(x, attn_mask=self.attn_mask)
         print(x.device)
         x = x.permute(1, 0, 2)  # LND -> NLD
