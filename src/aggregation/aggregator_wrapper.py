@@ -12,6 +12,7 @@ class CLIPTxt(torch.nn.Module):
         self.ln_final = clip.ln_final
         self.text_projection = clip.text_projection
         self.attn_mask = clip.attn_mask
+        self.attn_mask = self.attn_mask.to('cuda:0')
 
     def forward(self, text):
         print(text.device)
