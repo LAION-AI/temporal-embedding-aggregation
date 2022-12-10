@@ -65,10 +65,12 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
 
         if args.image_data:
             optimizer.zero_grad()
-            img_embeddings = next(img_iter)
-            print(img_embeddings)
+            img_embeddings, _ = next(img_iter)
+            img_embeddings = torch.tensor(img_embeddings)
             img_embeddings = img_embeddings.to(device, non_blocking=True)
-            text_embeddings = next(text_iter)
+
+            text_embeddings, _ = next(text_iter)
+            text_embeddings = torch.tensor(text_embeddings)
             text_embeddings = text_embeddings.to(device, non_blocking=True)
 
             video_embeddings = model_video.encode_video(img_embeddings, prenorm=True, postnorm=True)
