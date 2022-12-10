@@ -23,7 +23,6 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         use_horovod=False,
     )
 
-    model_video.cuda()
     dataloader = data["train"].dataloader
     
     if args.image_data:
@@ -53,8 +52,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
 
         embeddings = embeddings.to(device, non_blocking=True)
         toks = toks.to(device, non_blocking=True)
-        print(embeddings.device)
-        print(toks.device)
+        
         optimizer.zero_grad()
 
         video_embeddings, text_embeddings, logit_scale = model_video(embeddings.to('cuda:0'), toks.to('cuda:0'), prenorm=True, postnorm=True)
