@@ -157,6 +157,12 @@ def parse_args():
         default=False,
         help="Always save the most recent model trained to epoch_latest.pt.",
     )
+    parser.add_argument(
+        "--image-data",
+        type=str,
+        default=None,
+        help='Image tars to train alongside video data'
+    )
 
     args = parser.parse_args()
     return args

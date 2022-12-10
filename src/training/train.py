@@ -9,6 +9,8 @@ from torch import nn
 from training.loss import ClipLoss
 from .distributed import is_master
 
+from embedding_reader import EmbeddingReader
+
 def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_writer=None):
     device = torch.device(args.device)
     model_video.train()
@@ -21,6 +23,22 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         use_horovod=False,
     )
     dataloader = data["train"].dataloader
+    if args.image_data:
+        #dataloader_images = data["images"].dataloader
+        #img_iter = iter(dataloader_images)
+
+        embeddings_images = EmbeddingReader(
+            embeddings_folder=args.image_data + '/img_emb',
+            file_format='npy'
+        )
+        embeddings_txt = EmbeddingReader(
+            embeddings_folder=args.image_data + '/text_emb',
+            file_format = 'npy'
+        )
+
+        img_iter = iter(embeddings_images(batch_size=128, start=0, end=embeddings_images.count))
+        text_iter = iter(embeddings_txt(batch_size=128, start=0, end=embeddings_txt.count))
+
     num_batches_per_epoch = dataloader.num_batches
 
     running_loss = 0.0
@@ -29,18 +47,36 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         scheduler(step)
 
         embeddings, toks = batch
+
         embeddings = embeddings.to(device, non_blocking=True)
         toks = toks.to(device, non_blocking=True)
 
         optimizer.zero_grad()
 
-        video_embeddings, text_embeddings, logit_scale  = model_video(embeddings, toks, prenorm=True, postnorm=True)
+        video_embeddings, text_embeddings, logit_scale = model_video(embeddings, toks, prenorm=True, postnorm=True)
         loss = loss_func(video_embeddings, text_embeddings, logit_scale)
         running_loss += loss.item() # maybe this doesn't make sense
 
         loss.backward()
         nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
         optimizer.step()
+
+        if args.image_data:
+            optimizer.zero_grad()
+            
+            img_embeddings = next(img_iter)
+            img_embeddings = img_embeddings.to(device, non_blocking=True)
+            text_embeddings = next(text_iter)
+            text_embeddings = text_embeddings.to(device, non_blocking=True)
+
+            video_embeddings = model_video.encode_video(img_embeddings, prenorm=True, postnorm=True)
+            logit_scale = model_video.logit_scale
+            loss = loss_func(video_embeddings, text_embeddings, logit_scale)
+            running_loss += loss.item()
+
+            loss.backward()
+            nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
+            optimizer.step()
 
         batch_count = i + 1
         if is_master(args) and (batch_count % 100 == 0 or batch == num_batches_per_epoch):

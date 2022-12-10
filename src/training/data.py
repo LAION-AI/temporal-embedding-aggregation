@@ -246,8 +246,8 @@ class ResampledShards2(IterableDataset):
             yield dict(url=self.rng.choice(self.urls))
 
 
-def get_wds_dataset(args, emb_transform, is_train, epoch=0, floor=False):
-    input_shards = args.train_data if is_train else args.val_data
+def get_wds_dataset(args, emb_transform, is_train, is_images=False, epoch=0, floor=False):
+    input_shards = args.image_data if is_images and is_train else args.train_data if is_train else args.val_data
     assert input_shards is not None
     resampled = getattr(args, 'dataset_resampled', False) and is_train
 
@@ -361,5 +361,9 @@ def get_data(args, preprocess_fns, epoch=0):
     if args.val_data:
         data["val"] = get_wds_dataset(
             args, preprocess_val, is_train=False)
+    # if args.image_data:
+    #    data["images"] = get_wds_dataset(
+    #        args, preprocess_train, is_train=True, is_images=True, epoch=epoch
+    #    )
 
     return data
