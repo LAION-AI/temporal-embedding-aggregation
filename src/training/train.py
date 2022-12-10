@@ -12,6 +12,7 @@ from .distributed import is_master
 from embedding_reader import EmbeddingReader
 
 def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_writer=None):
+    print(args.device)
     device = torch.device(args.device)
     model_video.train()
     loss_func = ClipLoss(
@@ -28,11 +29,11 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         #img_iter = iter(dataloader_images)
 
         embeddings_images = EmbeddingReader(
-            embeddings_folder=args.image_data + '/img_emb/',
+            embeddings_folder=f'{args.image_data}/img_emb/',
             file_format='npy'
         )
         embeddings_txt = EmbeddingReader(
-            embeddings_folder=args.image_data + '/text_emb/',
+            embeddings_folder=f'{args.image_data}/text_emb/',
             file_format = 'npy'
         )
 
@@ -42,7 +43,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
     num_batches_per_epoch = dataloader.num_batches
 
     running_loss = 0.0
-    for  i, batch in enumerate(dataloader):
+    for i, batch in enumerate(dataloader):
         step = num_batches_per_epoch * epoch + i
         scheduler(step)
 
@@ -63,7 +64,6 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
 
         if args.image_data:
             optimizer.zero_grad()
-            
             img_embeddings = next(img_iter)
             img_embeddings = img_embeddings.to(device, non_blocking=True)
             text_embeddings = next(text_iter)
