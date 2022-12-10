@@ -13,6 +13,7 @@ from embedding_reader import EmbeddingReader
 
 def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_writer=None):
     print(args.device)
+    print(model_video.device)
     device = torch.device(args.device)
     model_video.train()
     loss_func = ClipLoss(
@@ -23,6 +24,8 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         world_size=1,
         use_horovod=False,
     )
+
+    model_video = model_video.to(device)
     dataloader = data["train"].dataloader
     if args.image_data:
         #dataloader_images = data["images"].dataloader
