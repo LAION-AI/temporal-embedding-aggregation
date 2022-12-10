@@ -49,7 +49,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         scheduler(step)
 
         embeddings, toks = batch
-
+        print(embeddings.shape)
         embeddings = embeddings.to(device, non_blocking=True)
         toks = toks.to(device, non_blocking=True)
         

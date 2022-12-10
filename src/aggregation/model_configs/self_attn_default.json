@@ -2,7 +2,7 @@
         "type": "SelfAttentionalPooler",
         "args": {
                 "dim": 1024,
-                "context_dim": 512,
+                "context_dim": 1024,
                 "seq_len": 200,
                 "heads": 16,
                 "dim_head": 64,
