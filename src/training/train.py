@@ -12,9 +12,8 @@ from .distributed import is_master
 from embedding_reader import EmbeddingReader
 
 def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_writer=None):
-    print(args.device)
-    print(model_video.device)
     device = torch.device(args.device)
+    print(model_video.logit_scale.device)
     model_video.train()
     loss_func = ClipLoss(
         local_loss=False,
@@ -26,6 +25,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
     )
 
     model_video = model_video.to(device)
+    print(model_video.logit_scale.device)
     dataloader = data["train"].dataloader
     if args.image_data:
         #dataloader_images = data["images"].dataloader
