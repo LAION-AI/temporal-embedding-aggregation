@@ -9,6 +9,8 @@ from torch import nn
 from training.loss import ClipLoss
 from .distributed import is_master
 
+from embedding_reader import EmbeddingReader
+
 def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_writer=None):
     device = torch.device(args.device)
     model_video.train()
@@ -22,8 +24,21 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
     )
     dataloader = data["train"].dataloader
     if args.image_data:
-        dataloader_images = data["images"].dataloader
-        img_iter = iter(dataloader_images)
+        #dataloader_images = data["images"].dataloader
+        #img_iter = iter(dataloader_images)
+
+        embeddings_images = EmbeddingReader(
+            embeddings_folder=args.image_data + '/img_emb',
+            file_format='npy'
+        )
+        embeddings_txt = EmbeddingReader(
+            embeddings_folder=args.image_data + '/text_emb',
+            file_format = 'npy'
+        )
+
+        img_iter = iter(embeddings_images(batch_size=128, start=0, end=embeddings_images.count))
+        text_iter = iter(embeddings_txt(batch_size=128, start=0, end=embeddings_txt.count))
+
     num_batches_per_epoch = dataloader.num_batches
 
     running_loss = 0.0
@@ -48,12 +63,14 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
 
         if args.image_data:
             optimizer.zero_grad()
-
-            img_embeddings, img_toks = next(img_iter)
+            
+            img_embeddings = next(img_iter)
             img_embeddings = img_embeddings.to(device, non_blocking=True)
-            img_toks = img_toks.to(device, non_blocking=True)
+            text_embeddings = next(text_iter)
+            text_embeddings = text_embeddings.to(device, non_blocking=True)
 
-            video_embeddings, text_embeddings, logit_scale = model_video(img_embeddings, img_toks, prenorm=True, postnorm=True)
+            video_embeddings = model_video.encode_video(img_embeddings, prenorm=True, postnorm=True)
+            logit_scale = model_video.logit_scale
             loss = loss_func(video_embeddings, text_embeddings, logit_scale)
             running_loss += loss.item()
 

@@ -361,9 +361,9 @@ def get_data(args, preprocess_fns, epoch=0):
     if args.val_data:
         data["val"] = get_wds_dataset(
             args, preprocess_val, is_train=False)
-    if args.image_data:
-        data["images"] = get_wds_dataset(
-            args, preprocess_train, is_train=True, is_images=True, epoch=epoch
-        )
+    # if args.image_data:
+    #    data["images"] = get_wds_dataset(
+    #        args, preprocess_train, is_train=True, is_images=True, epoch=epoch
+    #    )
 
     return data
