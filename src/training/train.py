@@ -28,11 +28,11 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         #img_iter = iter(dataloader_images)
 
         embeddings_images = EmbeddingReader(
-            embeddings_folder=args.image_data + '/img_emb',
+            embeddings_folder=args.image_data + '/img_emb/',
             file_format='npy'
         )
         embeddings_txt = EmbeddingReader(
-            embeddings_folder=args.image_data + '/text_emb',
+            embeddings_folder=args.image_data + '/text_emb/',
             file_format = 'npy'
         )
 
