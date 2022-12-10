@@ -25,7 +25,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
     )
 
     model_video = model_video.to(device)
-    print(model_video.model_text.device)
+    
     dataloader = data["train"].dataloader
     
     if args.image_data:
