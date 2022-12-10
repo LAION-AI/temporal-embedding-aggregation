@@ -67,17 +67,19 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             optimizer.zero_grad()
             img_embeddings, _ = next(img_iter)
             img_embeddings = torch.tensor(img_embeddings)
-            embeddings = torch.zeros(128, 200, 1024)
-            embeddings[:, 0, :] = img_embeddings
-            embeddings = embeddings.to(device, non_blocking=True)
+            vid_emb = torch.zeros_like(embeddings)
+            print(vid_emb.shape)
+            vid_emb[:, 0, :] = img_embeddings
+            vid_emb = vid_emb.to(device, non_blocking=True)
 
             text_embeddings, _ = next(text_iter)
             text_embeddings = torch.tensor(text_embeddings)
-            txt_emb = torch.zeros(128, 200, 1024)
+            txt_emb = torch.zeros_like(embeddings)
+            print(txt_emb.shape)
             txt_emb[:, 0, :] = text_embeddings
             txt_emb = txt_emb.to(device, non_blocking=True)
 
-            video_embeddings = model_video.encode_video(embeddings, prenorm=True, postnorm=True)
+            video_embeddings = model_video.encode_video(vid_emb, prenorm=True, postnorm=True)
             logit_scale = model_video.logit_scale
             loss = loss_func(video_embeddings, txt_emb, logit_scale)
             running_loss += loss.item()
