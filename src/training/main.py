@@ -98,7 +98,7 @@ def main():
     model_video, model_str = create_model(args.model)
     model_video.to(args.device)
 
-    for parameter in model_video.parameters():
+    for parameter in model_video.model_text.parameters():
         print(parameter.device)
 
     logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
