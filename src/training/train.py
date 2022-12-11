@@ -26,9 +26,6 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
     dataloader = data["train"].dataloader
     
     if args.image_data:
-        #dataloader_images = data["images"].dataloader
-        #img_iter = iter(dataloader_images)
-
         embeddings_images = EmbeddingReader(
             embeddings_folder=f'{args.image_data}/img_emb/',
             file_format='npy'
@@ -47,12 +44,11 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
     for i, batch in enumerate(dataloader):
         step = num_batches_per_epoch * epoch + i
         scheduler(step)
-
         embeddings, toks = batch
-        
+
         embeddings = embeddings.to(device, non_blocking=True)
         toks = toks.to(device, non_blocking=True)
-        
+
         optimizer.zero_grad()
 
         video_embeddings, text_embeddings, logit_scale = model_video(embeddings, toks, prenorm=True, postnorm=True)
