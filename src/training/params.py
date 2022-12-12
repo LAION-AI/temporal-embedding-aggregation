@@ -161,7 +161,13 @@ def parse_args():
         "--image-data",
         type=str,
         default=None,
-        help='Image tars to train alongside video data'
+        help="s3 folder with image data to train alongside video data"
+    )
+    parser.add_argument(
+        "--image-batch-size",
+        type=int,
+        default=64,
+        help="Batch size of image sequences (batch_size, emb_dim)"
     )
 
     args = parser.parse_args()
