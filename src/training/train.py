@@ -39,6 +39,8 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
 
     num_batches_per_epoch = dataloader.num_batches
 
+    running_video_loss = 0.0
+    running_image_loss = 0.0
     running_loss = 0.0
     for i, batch in enumerate(dataloader):
         step = num_batches_per_epoch * epoch + i
@@ -52,7 +54,8 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
 
         video_embeddings, text_embeddings, logit_scale = model_video(embeddings, toks, prenorm=True, postnorm=True)
         loss = loss_func(video_embeddings, text_embeddings, logit_scale)
-        running_loss += loss.item() # maybe this doesn't make sense
+        running_video_loss += loss.item() # maybe this doesn't make sense
+        running_loss += loss.item()
 
         loss.backward()
         nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
@@ -76,6 +79,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             logit_scale = model_video.logit_scale
 
             loss = loss_func(video_embeddings, text_embeddings, logit_scale)
+            running_image_loss += loss.item()
             running_loss += loss.item()
 
             loss.backward()
@@ -87,6 +91,8 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             logging.info(
                 f"Train Epoch: {epoch} [{batch_count}/{num_batches_per_epoch} ({((batch_count/num_batches_per_epoch) * 100.0):.2f}%)] "
                 f"Loss: {running_loss/100.0} "
+                f"Video loss: {running_video_loss/100.0}"
+                f"Image loss: {running_image_loss/100.0}"
                 f"LR: {optimizer.param_groups[0]['lr']:5f} "
             )
 
@@ -102,6 +108,8 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
                     wandb.log({name: val, 'step': step}, step=step)
 
             running_loss = 0.0
+            running_video_loss = 0.0
+            running_image_loss = 0.0
 
 def evaluate(model_video, data, epoch, args, tb_writer=None):
     metrics = {}
