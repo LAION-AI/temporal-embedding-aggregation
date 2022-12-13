@@ -66,7 +66,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             img_embeddings, _ = next(img_iter)
             img_embeddings = torch.tensor(img_embeddings)
             
-            vid_emb = torch.zeros_like(embeddings)
+            vid_emb = torch.zeros(args.image_batch_size, embeddings.shape[1], embeddings.shape[2])
             
             vid_emb[:, 0, :] = img_embeddings
             vid_emb = vid_emb.to(device, non_blocking=True)
