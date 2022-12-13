@@ -57,9 +57,9 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         running_video_loss += loss.item() # maybe this doesn't make sense
         running_loss += loss.item()
 
-        loss.backward()
-        nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
-        optimizer.step()
+        #loss.backward()
+        #nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
+        #optimizer.step()
 
         if args.image_data:
             optimizer.zero_grad()
