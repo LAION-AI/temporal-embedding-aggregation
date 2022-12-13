@@ -22,8 +22,9 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         world_size=1,
         use_horovod=False,
     )
-
+    
     dataloader = data["train"].dataloader
+    print(len(dataloader))
     if args.image_data:
         embeddings_images = EmbeddingReader(
             embeddings_folder=f'{args.image_data}/img_emb/',
