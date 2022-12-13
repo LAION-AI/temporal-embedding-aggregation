@@ -91,8 +91,8 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             logging.info(
                 f"Train Epoch: {epoch} [{batch_count}/{num_batches_per_epoch} ({((batch_count/num_batches_per_epoch) * 100.0):.2f}%)] "
                 f"Loss: {running_loss/100.0} "
-                f"Video loss: {running_video_loss/100.0}"
-                f"Image loss: {running_image_loss/100.0}"
+                f"Video loss: {running_video_loss/100.0} "
+                f"Image loss: {running_image_loss/100.0} "
                 f"LR: {optimizer.param_groups[0]['lr']:5f} "
             )
 
