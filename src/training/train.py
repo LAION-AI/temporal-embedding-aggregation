@@ -53,13 +53,13 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         optimizer.zero_grad()
 
         video_embeddings, text_embeddings, logit_scale = model_video(embeddings, toks, prenorm=True, postnorm=True)
-        loss = loss_func(video_embeddings, text_embeddings, logit_scale)
-        running_video_loss += loss.item() # maybe this doesn't make sense
-        running_loss += loss.item()
+        loss_video = loss_func(video_embeddings, text_embeddings, logit_scale)
+        running_video_loss += loss_video.item() # maybe this doesn't make sense
+        running_loss += loss_video.item()
 
-        #loss.backward()
-        #nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
-        #optimizer.step()
+        loss_video.backward()
+        nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
+        optimizer.step()
 
         if args.image_data:
             optimizer.zero_grad()
@@ -71,19 +71,19 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             vid_emb[:, 0, :] = img_embeddings
             vid_emb = vid_emb.to(device, non_blocking=True)
 
-            text_embeddings, _ = next(text_iter)
-            text_embeddings = torch.tensor(text_embeddings)
-            text_embeddings = text_embeddings.to(device, non_blocking=True)
+            txt_emb, _ = next(text_iter)
+            txt_emb = torch.tensor(txt_emb)
+            txt_emb = txt_emb.to(device, non_blocking=True)
             
-            video_embeddings = model_video.encode_video(vid_emb, prenorm=True, postnorm=True)
+            vid_emb = model_video.encode_video(vid_emb, prenorm=True, postnorm=True)
             
             logit_scale = model_video.logit_scale
 
-            loss = loss_func(video_embeddings, text_embeddings, logit_scale)
-            running_image_loss += loss.item()
-            running_loss += loss.item()
+            loss_image = loss_func(vid_emb, txt_emb, logit_scale)
+            running_image_loss += loss_image.item()
+            running_loss += loss_image.item()
 
-            loss.backward()
+            loss_image.backward()
             nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
             optimizer.step()
 
