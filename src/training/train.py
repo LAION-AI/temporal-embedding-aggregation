@@ -80,7 +80,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             
             logit_scale = model_video.logit_scale
 
-            loss_image = loss_func(vid_emb, txt_emb, logit_scale) + 1e-10*torch.mean(sus)
+            loss_image = loss_func(vid_emb, txt_emb, logit_scale) + 1e-3*torch.mean(sus)
             running_image_loss += loss_image.item()
             running_loss += loss_image.item()
 
