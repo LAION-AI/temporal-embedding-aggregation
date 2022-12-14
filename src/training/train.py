@@ -76,11 +76,11 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             txt_emb = torch.tensor(txt_emb)
             txt_emb = txt_emb.to(device, non_blocking=True)
             
-            vid_emb, _, logit_scale = model_video(vid_emb, toks, prenorm=True, postnorm=True)
+            vid_emb, sus, logit_scale = model_video(vid_emb, toks, prenorm=True, postnorm=True)
             
             logit_scale = model_video.logit_scale
 
-            loss_image = loss_func(vid_emb, txt_emb, logit_scale)
+            loss_image = loss_func(vid_emb, txt_emb, logit_scale) + 1e-10*torch.mean(sus)
             running_image_loss += loss_image.item()
             running_loss += loss_image.item()
 
