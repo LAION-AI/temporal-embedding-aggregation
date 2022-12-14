@@ -11,9 +11,9 @@ class CLIPTxt(torch.nn.Module):
         self.transformer = clip.transformer
         self.ln_final = clip.ln_final
         self.text_projection = clip.text_projection
-        self.attn_mask = clip.attn_mask
-        device = self.token_embedding.device
-        self.attn_mask = self.attn_mask.to(device)
+        self.attn_mask = clip.attn_mask.cuda()
+        # device = self.token_embedding.device
+        # self.attn_mask = self.attn_mask.cuda()
 
     def forward(self, text):
         x = self.token_embedding(text)  # [batch_size, n_ctx, d_model]
