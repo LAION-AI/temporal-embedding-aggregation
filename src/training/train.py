@@ -76,7 +76,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             txt_emb = torch.tensor(txt_emb)
             txt_emb = txt_emb.to(device, non_blocking=True)
             
-            vid_emb = model_video.encode_video(vid_emb, prenorm=True, postnorm=True)
+            vid_emb, _, logit_scale = model_video(vid_emb, toks, prenorm=True, postnorm=True)
             
             logit_scale = model_video.logit_scale
 
