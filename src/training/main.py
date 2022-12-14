@@ -102,7 +102,7 @@ def main():
 
     # Make model distributed
     if args.distributed and not args.horovod:
-        model_video = torch.nn.parallel.DistributedDataParallel(model_video, device_ids=[device])
+        model_video = torch.nn.parallel.DistributedDataParallel(model_video, device_ids=[device], find_unused_parameters=True)
 
     if args.train_data:
         # Create optimizer:
