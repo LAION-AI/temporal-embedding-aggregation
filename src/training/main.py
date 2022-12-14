@@ -125,8 +125,8 @@ def main():
     elif args.report_to == "wandb" and is_master(args):
         logging.debug("Starting wandb.")
         wandb.init(
-            project="video-clip",
-            entity="iejmac", #TODO: do you need this?
+            project="laion-video-clip",
+            entity="danielmend", #TODO: do you need this?
             name=args.name,
             config=vars(args),
         )
