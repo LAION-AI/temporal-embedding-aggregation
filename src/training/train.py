@@ -16,10 +16,10 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
     model_video.train()
     loss_func = ClipLoss(
         local_loss=False,
-        gather_with_grad=False,
+        gather_with_grad=True,
         cache_labels=True,
-        rank=0,
-        world_size=1,
+        rank=args.rank,
+        world_size=args.world_size,
         use_horovod=False,
     )
     
@@ -52,7 +52,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         toks = toks.to(device, non_blocking=True)
 
         optimizer.zero_grad()
-
+        dims = embeddings.shape
         video_embeddings, text_embeddings, logit_scale = model_video(embeddings, toks, prenorm=True, postnorm=True)
         loss_video = loss_func(video_embeddings, text_embeddings, logit_scale)
         running_video_loss += loss_video.item() # maybe this doesn't make sense
@@ -61,13 +61,15 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         loss_video.backward()
         nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
         optimizer.step()
-
+        embeddings = None
+        video_embeddings = None
+        text_embeddings = None
         if args.image_data:
             optimizer.zero_grad()
             img_embeddings, _ = next(img_iter)
             img_embeddings = torch.tensor(img_embeddings)
             
-            vid_emb = torch.zeros(args.image_batch_size, embeddings.shape[1], embeddings.shape[2])
+            vid_emb = torch.zeros(args.image_batch_size, dims[1], dims[2])
             
             vid_emb[:, 0, :] = img_embeddings
             vid_emb = vid_emb.to(device, non_blocking=True)
@@ -84,19 +86,24 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             loss_image.backward()
             nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
             optimizer.step()
-
+            
+            vid_emb = None
+            txt_emb = None
+            img_embeddings = None
         batch_count = i + 1
-        if is_master(args) and (batch_count % 100 == 0 or batch == num_batches_per_epoch):
+        if is_master(args) and (batch_count % 10 == 0 or batch == num_batches_per_epoch):
             logging.info(
                 f"Train Epoch: {epoch} [{batch_count}/{num_batches_per_epoch} ({((batch_count/num_batches_per_epoch) * 100.0):.2f}%)] "
-                f"Loss: {running_loss/100.0} "
-                f"Video loss: {running_video_loss/100.0} "
-                f"Image loss: {running_image_loss/100.0} "
+                f"Loss: {running_loss/10.0} "
+                f"Video loss: {running_video_loss/10.0} "
+                f"Image loss: {running_image_loss/10.0} "
                 f"LR: {optimizer.param_groups[0]['lr']:5f} "
             )
 
             log_data = {
-                "train_loss": running_loss/100.0,
+                "train_loss": running_loss/10.0,
+                "video_loss": running_video_loss/10.0,
+                "image_loss": running_image_loss/10.0,
                 "lr": optimizer.param_groups[0]["lr"],
             }
             for name, val in log_data.items():

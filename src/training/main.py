@@ -97,12 +97,13 @@ def main():
     random_seed(args.seed)
     model_video, model_str = create_model(args.model)
     model_video.to(args.device)
-
+    print(f'PARAMCOUNT: {sum(p.numel() for p in model_video.aggregator.parameters() if p.requires_grad)}')
     logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
     # Make model distributed
     if args.distributed and not args.horovod:
-        model_video = torch.nn.parallel.DistributedDataParallel(model_video, device_ids=[device], find_unused_parameters=True)
+        find_u = True #args.image_data is not None
+        model_video = torch.nn.parallel.DistributedDataParallel(model_video, device_ids=[device], find_unused_parameters=find_u)
 
     if args.train_data:
         # Create optimizer:

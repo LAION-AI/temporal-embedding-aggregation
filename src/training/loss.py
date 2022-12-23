@@ -44,7 +44,7 @@ def gather_features(
                 all_text_features = torch.cat(gathered_text_features, dim=0)
     else:
         # We gather tensors from all gpus
-        if gather_with_grad:
+        if True: #gather_with_grad
             all_image_features = torch.cat(torch.distributed.nn.all_gather(image_features), dim=0)
             all_text_features = torch.cat(torch.distributed.nn.all_gather(text_features), dim=0)
         else:
@@ -58,7 +58,6 @@ def gather_features(
                 gathered_text_features[rank] = text_features
             all_image_features = torch.cat(gathered_image_features, dim=0)
             all_text_features = torch.cat(gathered_text_features, dim=0)
-
     return all_image_features, all_text_features
 
 
@@ -67,7 +66,7 @@ class ClipLoss(nn.Module):
     def __init__(
             self,
             local_loss=False,
-            gather_with_grad=False,
+            gather_with_grad=True,
             cache_labels=False,
             rank=0,
             world_size=1,
@@ -101,7 +100,7 @@ class ClipLoss(nn.Module):
         else:
             logits_per_image = logit_scale * image_features @ text_features.T
             logits_per_text = logit_scale * text_features @ image_features.T
-
+        print(f'batch size: {logits_per_image.shape[0]}')
         # calculated ground-truth and cache if enabled
         num_logits = logits_per_image.shape[0]
         if self.prev_num_logits != num_logits or device not in self.labels:
