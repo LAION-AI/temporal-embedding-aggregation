@@ -100,7 +100,7 @@ class ClipLoss(nn.Module):
         else:
             logits_per_image = logit_scale * image_features @ text_features.T
             logits_per_text = logit_scale * text_features @ image_features.T
-        print(f'batch size: {logits_per_image.shape[0]}')
+        # print(f'batch size: {logits_per_image.shape[0]}')
         # calculated ground-truth and cache if enabled
         num_logits = logits_per_image.shape[0]
         if self.prev_num_logits != num_logits or device not in self.labels:

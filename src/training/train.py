@@ -8,8 +8,7 @@ import numpy as np
 from torch import nn
 from training.loss import ClipLoss
 from .distributed import is_master
-
-from embedding_reader import EmbeddingReader
+import time
 
 def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_writer=None):
     device = torch.device(args.device)
@@ -26,23 +25,19 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
     dataloader = data["train"].dataloader
     
     if args.image_data:
-        embeddings_images = EmbeddingReader(
-            embeddings_folder=f'{args.image_data}/img_emb/',
-            file_format='npy'
-        )
-        embeddings_txt = EmbeddingReader(
-            embeddings_folder=f'{args.image_data}/text_emb/',
-            file_format = 'npy'
-        )
-
-        img_iter = iter(embeddings_images(batch_size=args.image_batch_size, start=0, end=dataloader.num_batches*args.image_batch_size, show_progress=False))
-        text_iter = iter(embeddings_txt(batch_size=args.image_batch_size, start=0, end=dataloader.num_batches*args.image_batch_size, show_progress=False))
+        img_iter = data["img_iter"]
+        text_iter = data["img_text_iter"]
 
     num_batches_per_epoch = dataloader.num_batches
 
     running_video_loss = 0.0
     running_image_loss = 0.0
     running_loss = 0.0
+    running_logit_scale = 0.0
+    global_batch_size = args.world_size * args.batch_size
+    if args.image_data:
+         global_batch_size *= 2
+    start = time.time()
     for i, batch in enumerate(dataloader):
         step = num_batches_per_epoch * epoch + i
         scheduler(step)
@@ -90,14 +85,22 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             vid_emb = None
             txt_emb = None
             img_embeddings = None
-        batch_count = i + 1
+        batch_count = i+1
+        
         if is_master(args) and (batch_count % 10 == 0 or batch == num_batches_per_epoch):
+            time_for_batches = time.time()-start
+            start = time.time()
+            samples_per_second = global_batch_size*10/time_for_batches
+            samples_per_second_per_gpu = samples_per_second/args.world_size
             logging.info(
                 f"Train Epoch: {epoch} [{batch_count}/{num_batches_per_epoch} ({((batch_count/num_batches_per_epoch) * 100.0):.2f}%)] "
                 f"Loss: {running_loss/10.0} "
                 f"Video loss: {running_video_loss/10.0} "
                 f"Image loss: {running_image_loss/10.0} "
                 f"LR: {optimizer.param_groups[0]['lr']:5f} "
+                f"Logit scale: {logit_scale.item()} "
+                f"Samples/s: {samples_per_second} "
+                f"Samples/s/gpu: {samples_per_second_per_gpu} "
             )
 
             log_data = {
@@ -105,6 +108,9 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
                 "video_loss": running_video_loss/10.0,
                 "image_loss": running_image_loss/10.0,
                 "lr": optimizer.param_groups[0]["lr"],
+                "logit_scale":logit_scale.item(),
+                "samples/s":samples_per_second,
+                "samples/s/gpu":samples_per_second_per_gpu
             }
             for name, val in log_data.items():
                 name = "train/" + name

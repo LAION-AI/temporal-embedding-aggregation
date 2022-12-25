@@ -22,6 +22,8 @@ from torch.utils.data.distributed import DistributedSampler
 from webdataset.filters import _shuffle
 from webdataset.tariterators import base_plus_ext, url_opener, tar_file_expander, valid_sample
 
+from embedding_reader import EmbeddingReader
+
 try:
     import horovod.torch as hvd
 except ImportError:
@@ -361,5 +363,33 @@ def get_data(args, preprocess_fns, epoch=0):
     if args.val_data:
         data["val"] = get_wds_dataset(
             args, preprocess_val, is_train=False)
+    if args.image_data:
+        embeddings_images = EmbeddingReader(
+            embeddings_folder=f'{args.image_data}/img_emb/',
+            file_format='npy'
+        )
+        embeddings_txt = EmbeddingReader(
+            embeddings_folder=f'{args.image_data}/text_emb/',
+            file_format = 'npy'
+        )
+
+        img_iter = iter(
+            embeddings_images(
+                batch_size=args.image_batch_size,
+                start=0,
+                end=data["train"].dataloader.num_batches*args.image_batch_size,
+                show_progress=False
+            )
+        )
+        text_iter = iter(
+            embeddings_txt(
+                batch_size=args.image_batch_size,
+                start=0,
+                end=data["train"].dataloader.num_batches*args.image_batch_size,
+                show_progress=False
+            )
+        )
+        data["img_iter"] = img_iter
+        data["img_text_iter"] = text_iter
 
     return data
