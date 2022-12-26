@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import time
 
 class CLIPTxt(torch.nn.Module):
     def __init__(self, clip):
@@ -51,7 +52,11 @@ class VideoCLIP(nn.Module):
         x = F.normalize(x.float(), dim=-1) if postnorm else x
         return x
 
-    def forward(self, video_embeddings, toks, prenorm=True, postnorm=True):
-        text_embeddings = self.encode_text(toks, postnorm=postnorm)
+    def forward(self, video_embeddings, toks, prenorm=True, postnorm=True, encode_text=True):
+        t = time.time()
+        text_embeddings = self.encode_text(toks, postnorm=postnorm) if encode_text else None
+        print(f'Encode text time: {time.time()-t}')
+        t = time.time()
         video_embeddings = self.encode_video(video_embeddings, prenorm=prenorm, postnorm=postnorm)
+        print(f'Encode video time: {time.time()-t}')
         return video_embeddings, text_embeddings, self.logit_scale.exp()
