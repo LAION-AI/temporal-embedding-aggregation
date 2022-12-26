@@ -38,8 +38,8 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
     print(global_batch_size)
     start = time.time()
     times = {}
+    t = time.time()
     for i, batch in enumerate(dataloader):
-        t = time.time()
         step = num_batches_per_epoch * epoch + i
         scheduler(step)
         embeddings, toks = batch
@@ -49,20 +49,20 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
 
         optimizer.zero_grad()
         dims = embeddings.shape
-        times['prep_video'] = time.time()-t
+        times['dataloader_video'] = times.get('dataloader_video', 0) + time.time()-t
         t = time.time()
         video_embeddings, text_embeddings, logit_scale = model_video(embeddings, toks, prenorm=True, postnorm=True)
-        times['forward_video'] = time.time()-t
+        times['forward_video'] = times.get('forward_video', 0) + time.time()-t
         t = time.time()
         loss_video = loss_func(video_embeddings, text_embeddings, logit_scale)
-        times['loss_video'] = time.time()-t
+        times['loss_video'] = times.get('loss_video', 0) + time.time()-t
         t = time.time()
         running_video_loss += loss_video.item() # maybe this doesn't make sense
         running_loss += loss_video.item()
         loss_video.backward()
         nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
         optimizer.step()
-        times['backward_video'] = time.time()-t
+        times['backward_video'] = times.get('backward_video', 0) + time.time()-t
         t = time.time()
         embeddings = None
         video_embeddings = None
@@ -80,10 +80,10 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             txt_emb, _ = next(text_iter)
             txt_emb = torch.tensor(txt_emb)
             txt_emb = txt_emb.to(device, non_blocking=True)
-            times['prep_image'] = time.time()-t
+            times['dataloader_image'] = times.get('dataloader_image', 0) + time.time()-t
             t = time.time()
             vid_emb, _, logit_scale = model_video(vid_emb, toks, prenorm=True, postnorm=True, encode_text=False)
-            times['forward_image'] = time.time()-t
+            times['forward_image'] = times.get('forward_image', 0) + time.time()-t
             t = time.time()
             loss_image = loss_func(vid_emb, txt_emb, logit_scale)
             times['loss_image'] = time.time()-t
@@ -94,21 +94,22 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             loss_image.backward()
             nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
             optimizer.step()
-            times['backward_image'] = time.time()-t
+            times['backward_image'] = times.get('backward_image', 0) + time.time()-t
             t = time.time()
             vid_emb = None
             txt_emb = None
             img_embeddings = None
         batch_count = i+1
-        bs_times = {x:global_batch_size/(times[x]) for x in times}
-        print(f'Raw times: {times}')
-        print(f'Samples/s: {bs_times}')
         if is_master(args) and (batch_count % 10 == 0 or batch == num_batches_per_epoch):
             time_for_batches = time.time()-start
             print(f'Time for batches: {time_for_batches}')
             print(f'Mean time for batches: {time_for_batches/10}')
-            print(f'Time for last batch: {sum(times.values())}')
+
+            bs_times = {x:global_batch_size*10/(times[x]) for x in times}
+            print(f'Raw times: {times}')
+            print(f'Samples/s: {bs_times}')
             start = time.time()
+            times = {}
             samples_per_second = global_batch_size*10/time_for_batches
             samples_per_second_per_gpu = samples_per_second/args.world_size
             if args.image_data:
@@ -144,7 +145,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             running_loss = 0.0
             running_video_loss = 0.0
             running_image_loss = 0.0
-        times['logging'] = time.time()-t
+        times['logging'] = times.get('logging', 0) + time.time()-t
         t = time.time()
 
 def evaluate(model_video, data, epoch, args, tb_writer=None):
