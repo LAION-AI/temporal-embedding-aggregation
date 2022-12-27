@@ -372,8 +372,8 @@ def get_data(args, preprocess_fns, epoch=0):
             embeddings_folder=f'{args.image_data}/text_emb/',
             file_format = 'npy'
         )
-        worker_start_indices = torch.linspace(0, 5e9, args.world_size)
-        worker_start = worker_start_indices[args.rank]
+        worker_start_indices = torch.linspace(0, 1e9, args.world_size, dtype=torch.long)
+        worker_start = worker_start_indices[args.rank].item()
         img_iter = iter(
             embeddings_images(
                 batch_size=args.image_batch_size,
