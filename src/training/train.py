@@ -76,10 +76,10 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
 
             vid_emb[:, 0, :] = img_embeddings
             vid_emb = vid_emb.to(device, non_blocking=True)
-
             txt_emb, _ = next(text_iter)
             txt_emb = torch.tensor(txt_emb)
             txt_emb = txt_emb.to(device, non_blocking=True)
+            # print(img_embeddings.float().cuda() @ txt_emb.cuda().t().float())
             times['dataloader_image'] = times.get('dataloader_image', 0) + time.time()-t
             t = time.time()
             vid_emb, _, logit_scale = model_video(vid_emb, toks, prenorm=True, postnorm=True, encode_text=False)
@@ -105,7 +105,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             print(f'Time for batches: {time_for_batches}')
             print(f'Mean time for batches: {time_for_batches/10}')
 
-            bs_times = {x:global_batch_size*10/(times[x]) for x in times}
+            bs_times = {x:global_batch_size*10/(times[x]*args.world_size) for x in times}
             print(f'Raw times: {times}')
             print(f'Samples/s: {bs_times}')
             start = time.time()
