@@ -11,6 +11,7 @@ from .distributed import is_master
 import time
 
 from torch.cuda.amp import autocast
+from torch.cuda.amp import GradScaler
 
 def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_writer=None):
     device = torch.device(args.device)
@@ -23,7 +24,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         world_size=args.world_size,
         use_horovod=False,
     )
-    
+    scaler = GradScaler()
     dataloader = data["train"].dataloader
     
     if args.image_data:
@@ -74,12 +75,14 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             loss_video = loss_func(video_embeddings, text_embeddings, logit_scale)
             times['loss_video'] = times.get('loss_video', 0) + time.time()-t
         t = time.time()
-
+        
         running_video_loss += loss_video.item() # maybe this doesn't make sense
         running_loss += loss_video.item()
-        loss_video.backward()
+        scaler.scale(loss_video).backward()
+        scaler.unscale_(optimizer)
         nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
-        optimizer.step()
+        scaler.step(optimizer)
+        scaler.update()
         times['backward_video'] = times.get('backward_video', 0) + time.time()-t
         t = time.time()
         embeddings = None
@@ -121,9 +124,11 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             running_image_loss += loss_image.item()
             running_loss += loss_image.item()
 
-            loss_image.backward()
+            scaler.scale(loss_image).backward()
+            scaler.unscale_(optimizer)
             nn.utils.clip_grad_norm_(model_video.parameters(), args.grad_clip) # clip grads
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
             times['backward_image'] = times.get('backward_image', 0) + time.time()-t
             t = time.time()
             vid_emb = None
