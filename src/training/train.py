@@ -10,6 +10,8 @@ from training.loss import ClipLoss
 from .distributed import is_master
 import time
 
+from torch.cuda.amp import autocast
+
 def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_writer=None):
     device = torch.device(args.device)
     model_video.train()
@@ -25,8 +27,22 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
     dataloader = data["train"].dataloader
     
     if args.image_data:
-        img_iter = data["img_iter"]
-        text_iter = data["img_text_iter"]
+        img_iter = iter(
+            data["img_reader"](
+                batch_size=args.image_batch_size,
+                start=data["worker_start"],
+                end=data["worker_end"],
+                show_progress=False
+            )
+        )
+        text_iter = iter(
+            data["img_txt_reader"](
+                batch_size=args.image_batch_size,
+                start=data["worker_start"],
+                end=data["worker_end"],
+                show_progress=False
+            )
+        )
 
     num_batches_per_epoch = dataloader.num_batches
 
@@ -51,12 +67,14 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         dims = embeddings.shape
         times['dataloader_video'] = times.get('dataloader_video', 0) + time.time()-t
         t = time.time()
-        video_embeddings, text_embeddings, logit_scale = model_video(embeddings, toks, prenorm=True, postnorm=True)
-        times['forward_video'] = times.get('forward_video', 0) + time.time()-t
+        with autocast():
+            video_embeddings, text_embeddings, logit_scale = model_video(embeddings, toks, prenorm=True, postnorm=True)
+            times['forward_video'] = times.get('forward_video', 0) + time.time()-t
+            t = time.time()
+            loss_video = loss_func(video_embeddings, text_embeddings, logit_scale)
+            times['loss_video'] = times.get('loss_video', 0) + time.time()-t
         t = time.time()
-        loss_video = loss_func(video_embeddings, text_embeddings, logit_scale)
-        times['loss_video'] = times.get('loss_video', 0) + time.time()-t
-        t = time.time()
+
         running_video_loss += loss_video.item() # maybe this doesn't make sense
         running_loss += loss_video.item()
         loss_video.backward()
@@ -69,23 +87,35 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         text_embeddings = None
         if args.image_data:
             optimizer.zero_grad()
-            img_embeddings, _ = next(img_iter)
+            try:
+                img_embeddings, _ = next(img_iter)
+            except:
+                continue
             img_embeddings = torch.tensor(img_embeddings)
+
+            batch_padded_img_embeddings = torch.zeros(dims[0], dims[2])
+            batch_padded_img_embeddings[:len(img_embeddings), :] = img_embeddings
 
             vid_emb = torch.zeros(args.image_batch_size, dims[1], dims[2])
 
-            vid_emb[:, 0, :] = img_embeddings
+            vid_emb[:, 0, :] = batch_padded_img_embeddings
             vid_emb = vid_emb.to(device, non_blocking=True)
-            txt_emb, _ = next(text_iter)
+            try:
+                 txt_emb, _ = next(text_iter)
+            except:
+                 continue
             txt_emb = torch.tensor(txt_emb)
-            txt_emb = txt_emb.to(device, non_blocking=True)
+            batch_padded_txt_emb = torch.zeros(dims[0], dims[2])
+            batch_padded_txt_emb[:len(txt_emb), :] = txt_emb
+            batch_padded_txt_emb = batch_padded_txt_emb.to(device, non_blocking=True)
             # print(img_embeddings.float().cuda() @ txt_emb.cuda().t().float())
             times['dataloader_image'] = times.get('dataloader_image', 0) + time.time()-t
             t = time.time()
-            vid_emb, _, logit_scale = model_video(vid_emb, toks, prenorm=True, postnorm=True, encode_text=False)
-            times['forward_image'] = times.get('forward_image', 0) + time.time()-t
-            t = time.time()
-            loss_image = loss_func(vid_emb, txt_emb, logit_scale)
+            with autocast():
+                vid_emb, _, logit_scale = model_video(vid_emb, toks, prenorm=True, postnorm=True, encode_text=False)
+                times['forward_image'] = times.get('forward_image', 0) + time.time()-t
+                t = time.time()
+                loss_image = loss_func(vid_emb, batch_padded_txt_emb, logit_scale)
             times['loss_image'] = time.time()-t
             t = time.time()
             running_image_loss += loss_image.item()

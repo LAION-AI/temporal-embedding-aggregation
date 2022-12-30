@@ -364,14 +364,15 @@ def get_data(args, preprocess_fns, epoch=0):
         data["val"] = get_wds_dataset(
             args, preprocess_val, is_train=False)
     if args.image_data:
+        BUFFER = 0
         num_samples_per_worker = args.train_num_samples/args.world_size
-        worker_start_indices = torch.linspace(0, args.train_num_samples-num_samples_per_worker, args.world_size, dtype=torch.long)
+        worker_start_indices = torch.linspace(0, args.train_num_samples-num_samples_per_worker+BUFFER, args.world_size, dtype=torch.long)
         worker_end_indices = (worker_start_indices + num_samples_per_worker).long()
-        print(worker_start_indices)
-        print(worker_end_indices)
+#        print(worker_start_indices)
+#        print(worker_end_indices)
         worker_start = worker_start_indices[args.rank].item()
         worker_end = worker_end_indices[args.rank].item()
-        print(worker_start, worker_end)
+#        print(worker_start, worker_end)
         embeddings_images = EmbeddingReader(
             embeddings_folder=f'{args.image_data}/img_emb/',
             file_format='npy'
@@ -396,7 +397,9 @@ def get_data(args, preprocess_fns, epoch=0):
                 show_progress=False
             )
         )
-        data["img_iter"] = img_iter
-        data["img_text_iter"] = text_iter
+        data["img_reader"] = embeddings_images #img_iter
+        data["img_txt_reader"] = embeddings_txt #text_iter
+        data["worker_start"] = worker_start
+        data["worker_end"] = worker_end
 
     return data
