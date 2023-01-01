@@ -230,8 +230,6 @@ class ResampledShards2(IterableDataset):
         self.worker_seed = pytorch_worker_seed if worker_seed is None else worker_seed
         self.deterministic = deterministic
         self.epoch = epoch
-        print(self.nshards)
-        #print(self.urls)
 
     def __iter__(self):
         """Return an iterator over the shards."""
@@ -246,9 +244,7 @@ class ResampledShards2(IterableDataset):
             # reset seed w/ epoch if deterministic, worker seed should be deterministic due to arg.seed
             self.rng.seed(self.worker_seed() + epoch)
         for _ in range(self.nshards):
-            choice = self.rng.choice(self.urls)
-            print(choice)
-            yield dict(url=choice)
+            yield dict(url=self.rng.choice(self.urls))
 
 
 def get_wds_dataset(args, emb_transform, is_train, epoch=0, floor=False):
@@ -266,7 +262,6 @@ def get_wds_dataset(args, emb_transform, is_train, epoch=0, floor=False):
                     'Please specify via `--train-num-samples` if no dataset length info present.')
         else:
             num_samples = args.val_num_samples or 0  # eval will just exhaust the iterator if not specified
-    print(type(input_shards))
     shared_epoch = SharedEpoch(epoch=epoch)  # create a shared epoch store to sync epoch to dataloader worker proc
     if resampled:
         pipeline = [ResampledShards2(input_shards, deterministic=True, epoch=shared_epoch)]
@@ -371,11 +366,8 @@ def get_data(args, preprocess_fns, epoch=0):
         num_samples_per_worker = args.train_num_samples/args.world_size
         worker_start_indices = torch.linspace(0, args.train_num_samples-num_samples_per_worker+BUFFER, args.world_size, dtype=torch.long)
         worker_end_indices = (worker_start_indices + num_samples_per_worker).long()
-#        print(worker_start_indices)
-#        print(worker_end_indices)
         worker_start = worker_start_indices[args.rank].item()
         worker_end = worker_end_indices[args.rank].item()
-#        print(worker_start, worker_end)
         embeddings_images = EmbeddingReader(
             embeddings_folder=f'{args.image_data}/img_emb/',
             file_format='npy'
