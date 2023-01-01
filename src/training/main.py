@@ -4,11 +4,13 @@ import random
 import wandb
 
 from datetime import datetime
+from collections import Counter
 
 import open_clip
 import numpy as np
 import torch
 import torch.utils.tensorboard as tensorboard
+from torch.cuda.amp import GradScaler
 
 try:
     import horovod.torch as hvd
@@ -23,16 +25,14 @@ from training.params import parse_args
 from training.scheduler import cosine_lr
 from training.train import train_one_epoch, evaluate
 
-
 def random_seed(seed=42, rank=0):
     torch.manual_seed(seed + rank)
     np.random.seed(seed + rank)
     random.seed(seed + rank)
 
-
 def main():
     args = parse_args()
-
+    
     conf_name = args.model.split("/")[-1][:-5]
     # get the name of the experiments
     if args.name is None:
@@ -99,6 +99,7 @@ def main():
     model_video.to(args.device)
     print(f'PARAMCOUNT: {sum(p.numel() for p in model_video.aggregator.parameters() if p.requires_grad)}')
     logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+    scaler = GradScaler()
 
     # Make model distributed
     if args.distributed and not args.horovod:
@@ -160,7 +161,8 @@ def main():
     for epoch in range(start_epoch, args.epochs):
         if is_master(args):
             logging.info(f'Start epoch {epoch}')
-        train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, writer)
+        
+        train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args, writer)
         completed_epoch = epoch + 1
 
         if 'val' in data:
@@ -187,6 +189,7 @@ def main():
                     os.path.join(args.checkpoint_path, f"epoch_latest.pt"),
                 )
 
+        data = get_data(args, preprocess)
     if args.report_to == "wandb" and is_master(args):
         wandb.finish()
 

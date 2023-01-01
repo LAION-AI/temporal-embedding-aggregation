@@ -81,7 +81,6 @@ def get_preprocess_emb(postprocess_npy, standard_seq_len):
         emb = torch.from_numpy(emb)
         return emb
     return preproc_emb
-        
 
 def get_dataset_size(shards):
     shards_list = list(braceexpand.braceexpand(shards))
@@ -231,6 +230,8 @@ class ResampledShards2(IterableDataset):
         self.worker_seed = pytorch_worker_seed if worker_seed is None else worker_seed
         self.deterministic = deterministic
         self.epoch = epoch
+        print(self.nshards)
+        #print(self.urls)
 
     def __iter__(self):
         """Return an iterator over the shards."""
@@ -245,7 +246,9 @@ class ResampledShards2(IterableDataset):
             # reset seed w/ epoch if deterministic, worker seed should be deterministic due to arg.seed
             self.rng.seed(self.worker_seed() + epoch)
         for _ in range(self.nshards):
-            yield dict(url=self.rng.choice(self.urls))
+            choice = self.rng.choice(self.urls)
+            print(choice)
+            yield dict(url=choice)
 
 
 def get_wds_dataset(args, emb_transform, is_train, epoch=0, floor=False):
@@ -263,7 +266,7 @@ def get_wds_dataset(args, emb_transform, is_train, epoch=0, floor=False):
                     'Please specify via `--train-num-samples` if no dataset length info present.')
         else:
             num_samples = args.val_num_samples or 0  # eval will just exhaust the iterator if not specified
-
+    print(type(input_shards))
     shared_epoch = SharedEpoch(epoch=epoch)  # create a shared epoch store to sync epoch to dataloader worker proc
     if resampled:
         pipeline = [ResampledShards2(input_shards, deterministic=True, epoch=shared_epoch)]
@@ -301,9 +304,9 @@ def get_wds_dataset(args, emb_transform, is_train, epoch=0, floor=False):
     preprocess_emb = get_preprocess_emb(emb_transform, args.sequence_length)
     pipeline.extend([
         wds.select(filter_no_caption),
-        wds.rename(embeddings="npy", text="txt"),
+        wds.rename(embeddings="npy", text="txt", meta="json"),
         wds.map_dict(embeddings=preprocess_emb, text=preprocess_txt),
-        wds.to_tuple("embeddings", "text"),
+        wds.to_tuple("embeddings", "text", "meta"),
         wds.batched(args.batch_size, partial=not is_train),
     ])
 

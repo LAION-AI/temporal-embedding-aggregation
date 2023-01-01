@@ -1,7 +1,8 @@
+
 """training code"""
 import logging
 import wandb
-
+import ast
 import torch
 import numpy as np
 
@@ -11,9 +12,8 @@ from .distributed import is_master
 import time
 
 from torch.cuda.amp import autocast
-from torch.cuda.amp import GradScaler
-
-def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_writer=None):
+from collections import Counter
+def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args, tb_writer=None):
     device = torch.device(args.device)
     model_video.train()
     loss_func = ClipLoss(
@@ -24,9 +24,9 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
         world_size=args.world_size,
         use_horovod=False,
     )
-    scaler = GradScaler()
+    ids = []
     dataloader = data["train"].dataloader
-    
+    id_counter = Counter()
     if args.image_data:
         img_iter = iter(
             data["img_reader"](
@@ -59,7 +59,13 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
     for i, batch in enumerate(dataloader):
         step = num_batches_per_epoch * epoch + i
         scheduler(step)
-        embeddings, toks = batch
+       
+        embeddings, toks, meta = batch
+        #print(meta[0])
+        vidLocs = [ast.literal_eval(x.decode("UTF-8"))["videoLoc"] for x in meta]
+        #ids = [int(x.split('videos')[1].split('/')[1]) for x in vidLocs]
+        for v in vidLocs:
+            id_counter[v] += 1
 
         embeddings = embeddings.to(device, non_blocking=True)
         toks = toks.to(device, non_blocking=True)
@@ -136,6 +142,15 @@ def train_one_epoch(model_video, data, epoch, optimizer, scheduler, args, tb_wri
             img_embeddings = None
         batch_count = i+1
         if is_master(args) and (batch_count % 10 == 0 or batch == num_batches_per_epoch):
+            #all_counter = torch.distributed.all_gather(id_counter)
+            #all_ids = torch.tensor(list(id_counter.keys())).to(device)
+            #out_tensor_list = [
+            #     torch.empty_like(all_ids) for i in range(args.world_size)
+            #]
+            #torch.distributed.all_gather(out_tensor_list, all_ids)
+            #gathered_ids = torch.cat(out_tensor_list, dim=0)
+            #gathered_unique_ids = gathered_ids.unique()
+            print(f'Num unique samples: {len(id_counter)}')
             time_for_batches = time.time()-start
             print(f'Time for batches: {time_for_batches}')
             print(f'Mean time for batches: {time_for_batches/10}')
