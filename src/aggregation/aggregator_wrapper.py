@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-import time
 
 class CLIPTxt(torch.nn.Module):
     def __init__(self, clip):
@@ -26,9 +25,11 @@ class CLIPTxt(torch.nn.Module):
 
         # x.shape = [batch_size, n_ctx, transformer.width]
         # take features from the eot embedding (eot_token is the highest number in each sequence)
-        x = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
-
-        return x
+        arange = torch.arange(x.shape[0])
+        argmax = text.argmax(dim=-1)
+        indexed = x[arange, argmax]
+        matmul = indexed  @ self.text_projection
+        return matmul
 
 class VideoCLIP(nn.Module):
     """
@@ -38,7 +39,6 @@ class VideoCLIP(nn.Module):
         super().__init__()
         self.aggregator = aggregator
         self.model_text = CLIPTxt(clip_model)
-        
         self.logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
     def encode_text(self, x, postnorm=True):
@@ -53,10 +53,6 @@ class VideoCLIP(nn.Module):
         return x
 
     def forward(self, video_embeddings, toks, prenorm=True, postnorm=True, encode_text=True):
-        t = time.time()
         text_embeddings = self.encode_text(toks, postnorm=postnorm) if encode_text else None
-        print(f'Encode text time: {time.time()-t}')
-        t = time.time()
         video_embeddings = self.encode_video(video_embeddings, prenorm=prenorm, postnorm=postnorm)
-        print(f'Encode video time: {time.time()-t}')
         return video_embeddings, text_embeddings, self.logit_scale.exp()
