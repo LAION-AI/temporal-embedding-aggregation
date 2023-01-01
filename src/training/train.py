@@ -2,7 +2,6 @@
 """training code"""
 import logging
 import wandb
-import ast
 import torch
 import numpy as np
 
@@ -12,7 +11,6 @@ from .distributed import is_master
 import time
 
 from torch.cuda.amp import autocast
-from collections import Counter
 def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args, tb_writer=None):
     device = torch.device(args.device)
     model_video.train()
@@ -52,21 +50,14 @@ def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args
     running_loss = 0.0
     running_logit_scale = 0.0
     global_batch_size = args.world_size * args.batch_size
-    print(global_batch_size)
     start = time.time()
     times = {}
     t = time.time()
     for i, batch in enumerate(dataloader):
         step = num_batches_per_epoch * epoch + i
         scheduler(step)
-       
-        embeddings, toks, meta = batch
-        #print(meta[0])
-        vidLocs = [ast.literal_eval(x.decode("UTF-8"))["videoLoc"] for x in meta]
-        #ids = [int(x.split('videos')[1].split('/')[1]) for x in vidLocs]
-        for v in vidLocs:
-            id_counter[v] += 1
 
+        embeddings, toks, meta = batch
         embeddings = embeddings.to(device, non_blocking=True)
         toks = toks.to(device, non_blocking=True)
 
@@ -81,7 +72,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args
             loss_video = loss_func(video_embeddings, text_embeddings, logit_scale)
             times['loss_video'] = times.get('loss_video', 0) + time.time()-t
         t = time.time()
-        
+
         running_video_loss += loss_video.item() # maybe this doesn't make sense
         running_loss += loss_video.item()
         scaler.scale(loss_video).backward()
@@ -117,7 +108,6 @@ def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args
             batch_padded_txt_emb = torch.zeros(dims[0], dims[2])
             batch_padded_txt_emb[:len(txt_emb), :] = txt_emb
             batch_padded_txt_emb = batch_padded_txt_emb.to(device, non_blocking=True)
-            # print(img_embeddings.float().cuda() @ txt_emb.cuda().t().float())
             times['dataloader_image'] = times.get('dataloader_image', 0) + time.time()-t
             t = time.time()
             with autocast():
@@ -142,15 +132,6 @@ def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args
             img_embeddings = None
         batch_count = i+1
         if is_master(args) and (batch_count % 10 == 0 or batch == num_batches_per_epoch):
-            #all_counter = torch.distributed.all_gather(id_counter)
-            #all_ids = torch.tensor(list(id_counter.keys())).to(device)
-            #out_tensor_list = [
-            #     torch.empty_like(all_ids) for i in range(args.world_size)
-            #]
-            #torch.distributed.all_gather(out_tensor_list, all_ids)
-            #gathered_ids = torch.cat(out_tensor_list, dim=0)
-            #gathered_unique_ids = gathered_ids.unique()
-            print(f'Num unique samples: {len(id_counter)}')
             time_for_batches = time.time()-start
             print(f'Time for batches: {time_for_batches}')
             print(f'Mean time for batches: {time_for_batches/10}')

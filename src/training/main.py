@@ -4,7 +4,6 @@ import random
 import wandb
 
 from datetime import datetime
-from collections import Counter
 
 import open_clip
 import numpy as np
@@ -32,7 +31,7 @@ def random_seed(seed=42, rank=0):
 
 def main():
     args = parse_args()
-    
+
     conf_name = args.model.split("/")[-1][:-5]
     # get the name of the experiments
     if args.name is None:
@@ -97,14 +96,12 @@ def main():
     random_seed(args.seed)
     model_video, model_str = create_model(args.model)
     model_video.to(args.device)
-    print(f'PARAMCOUNT: {sum(p.numel() for p in model_video.aggregator.parameters() if p.requires_grad)}')
     logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
     scaler = GradScaler()
 
     # Make model distributed
     if args.distributed and not args.horovod:
-        find_u = True #args.image_data is not None
-        model_video = torch.nn.parallel.DistributedDataParallel(model_video, device_ids=[device], find_unused_parameters=find_u)
+        model_video = torch.nn.parallel.DistributedDataParallel(model_video, device_ids=[device], find_unused_parameters=True)
 
     if args.train_data:
         # Create optimizer:
