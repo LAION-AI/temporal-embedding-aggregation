@@ -24,7 +24,6 @@ def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args
     )
     ids = []
     dataloader = data["train"].dataloader
-    id_counter = Counter()
     if args.image_data:
         img_iter = iter(
             data["img_reader"](
