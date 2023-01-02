@@ -110,7 +110,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args
             times['dataloader_image'] = times.get('dataloader_image', 0) + time.time()-t
             t = time.time()
             with autocast():
-                vid_emb, _, logit_scale = model_video(vid_emb, toks, prenorm=True, postnorm=True, encode_text=False)
+                vid_emb, _, logit_scale = model_video(vid_emb, toks, prenorm=True, postnorm=True)
                 times['forward_image'] = times.get('forward_image', 0) + time.time()-t
                 t = time.time()
                 loss_image = loss_func(vid_emb, batch_padded_txt_emb, logit_scale)
