@@ -66,7 +66,7 @@ class ClipLoss(nn.Module):
     def __init__(
             self,
             local_loss=False,
-            gather_with_grad=True,
+            gather_with_grad=False,
             cache_labels=False,
             rank=0,
             world_size=1,

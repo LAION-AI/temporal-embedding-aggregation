@@ -25,11 +25,7 @@ class CLIPTxt(torch.nn.Module):
 
         # x.shape = [batch_size, n_ctx, transformer.width]
         # take features from the eot embedding (eot_token is the highest number in each sequence)
-        arange = torch.arange(x.shape[0])
-        argmax = text.argmax(dim=-1)
-        indexed = x[arange, argmax]
-        matmul = indexed  @ self.text_projection
-        return matmul
+        return x[torch.arange(x.shape[0]), torch.argmax(dim=-1)] @ self.text_projection
 
 class VideoCLIP(nn.Module):
     """
@@ -52,7 +48,7 @@ class VideoCLIP(nn.Module):
         x = F.normalize(x.float(), dim=-1) if postnorm else x
         return x
 
-    def forward(self, video_embeddings, toks, prenorm=True, postnorm=True, encode_text=True):
-        text_embeddings = self.encode_text(toks, postnorm=postnorm) if encode_text else None
+    def forward(self, video_embeddings, toks, prenorm=True, postnorm=True):
+        text_embeddings = self.encode_text(toks, postnorm=postnorm)
         video_embeddings = self.encode_video(video_embeddings, prenorm=prenorm, postnorm=postnorm)
         return video_embeddings, text_embeddings, self.logit_scale.exp()
