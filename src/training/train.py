@@ -16,7 +16,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args
     model_video.train()
     loss_func = ClipLoss(
         local_loss=False,
-        gather_with_grad=True,
+        gather_with_grad=args.gather_with_grad,
         cache_labels=True,
         rank=args.rank,
         world_size=args.world_size,

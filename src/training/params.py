@@ -169,6 +169,12 @@ def parse_args():
         default=64,
         help="Batch size of image sequences (batch_size, emb_dim)"
     )
+    parser.add_argument(
+        "--gather-with-grad",
+        type=bool,
+        default=True,
+        help="Parallelize logit matrix across all devices"
+    )
 
     args = parser.parse_args()
     return args
