@@ -22,6 +22,8 @@ from torch.utils.data.distributed import DistributedSampler
 from webdataset.filters import _shuffle
 from webdataset.tariterators import base_plus_ext, url_opener, tar_file_expander, valid_sample
 
+from embedding_reader import EmbeddingReader
+
 try:
     import horovod.torch as hvd
 except ImportError:
@@ -79,7 +81,6 @@ def get_preprocess_emb(postprocess_npy, standard_seq_len):
         emb = torch.from_numpy(emb)
         return emb
     return preproc_emb
-        
 
 def get_dataset_size(shards):
     shards_list = list(braceexpand.braceexpand(shards))
@@ -261,7 +262,6 @@ def get_wds_dataset(args, emb_transform, is_train, epoch=0, floor=False):
                     'Please specify via `--train-num-samples` if no dataset length info present.')
         else:
             num_samples = args.val_num_samples or 0  # eval will just exhaust the iterator if not specified
-
     shared_epoch = SharedEpoch(epoch=epoch)  # create a shared epoch store to sync epoch to dataloader worker proc
     if resampled:
         pipeline = [ResampledShards2(input_shards, deterministic=True, epoch=shared_epoch)]
@@ -299,9 +299,9 @@ def get_wds_dataset(args, emb_transform, is_train, epoch=0, floor=False):
     preprocess_emb = get_preprocess_emb(emb_transform, args.sequence_length)
     pipeline.extend([
         wds.select(filter_no_caption),
-        wds.rename(embeddings="npy", text="txt"),
+        wds.rename(embeddings="npy", text="txt", meta="json"),
         wds.map_dict(embeddings=preprocess_emb, text=preprocess_txt),
-        wds.to_tuple("embeddings", "text"),
+        wds.to_tuple("embeddings", "text", "meta"),
         wds.batched(args.batch_size, partial=not is_train),
     ])
 
@@ -361,5 +361,40 @@ def get_data(args, preprocess_fns, epoch=0):
     if args.val_data:
         data["val"] = get_wds_dataset(
             args, preprocess_val, is_train=False)
+    if args.image_data:
+        BUFFER = 0
+        num_samples_per_worker = args.train_num_samples/args.world_size
+        worker_start_indices = torch.linspace(0, args.train_num_samples-num_samples_per_worker+BUFFER, args.world_size, dtype=torch.long)
+        worker_end_indices = (worker_start_indices + num_samples_per_worker).long()
+        worker_start = worker_start_indices[args.rank].item()
+        worker_end = worker_end_indices[args.rank].item()
+        embeddings_images = EmbeddingReader(
+            embeddings_folder=f'{args.image_data}/img_emb/',
+            file_format='npy'
+        )
+        embeddings_txt = EmbeddingReader(
+            embeddings_folder=f'{args.image_data}/text_emb/',
+            file_format = 'npy'
+        )
+        img_iter = iter(
+            embeddings_images(
+                batch_size=args.image_batch_size,
+                start=worker_start,
+                end=worker_end,
+                show_progress=False
+            )
+        )
+        text_iter = iter(
+            embeddings_txt(
+                batch_size=args.image_batch_size,
+                start=worker_start,
+                end=worker_end,
+                show_progress=False
+            )
+        )
+        data["img_reader"] = embeddings_images #img_iter
+        data["img_txt_reader"] = embeddings_txt #text_iter
+        data["worker_start"] = worker_start
+        data["worker_end"] = worker_end
 
     return data
