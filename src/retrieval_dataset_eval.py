@@ -31,11 +31,12 @@ def evaluate_datasets_and_ckpts(eval_data):
         print(metrics)
 
 ckpt_dir = "logs/"
-videos_dir = "video-image-long-run/checkpoints/"
-
-
+videos_dir = "2023_01_07-09_04_31-model_self_attn_default-lr_0.001-b_667-j_6/checkpoints/"
+video_ckpts = []
+eval_data = []
+data_loc = 'pipe:aws s3 cp s3://s-laion/msr_vtt/clip_msr_vtt/oc_h14/test_fix/{000000000..000000007}.tar -'
 print("Loading checkpoints...")
-for i in range(1, 21):
+for i in range(1, 6):
 	checkpoint = torch.load(f"{ckpt_dir}{videos_dir}epoch_{i}.pt", map_location=device)
 	model_video, model_str = create_model("aggregation/model_configs/self_attn_default.json")
 	model_video = model_video.to(device)

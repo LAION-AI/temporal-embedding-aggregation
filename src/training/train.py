@@ -6,9 +6,11 @@ import torch
 import numpy as np
 
 from torch import nn
+import torch.nn.functional as F
 from training.loss import ClipLoss
 from .distributed import is_master
 import time
+import open_clip
 
 from torch.cuda.amp import autocast
 def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args, tb_writer=None):
@@ -52,13 +54,23 @@ def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args
     start = time.time()
     times = {}
     t = time.time()
+    tokenizer = open_clip.SimpleTokenizer()
     for i, batch in enumerate(dataloader):
         step = num_batches_per_epoch * epoch + i
         scheduler(step)
 
         embeddings, toks, meta = batch
+        if i < 5:
+            print(meta[0])
+        #print(embeddings.shape)
         embeddings = embeddings.to(device, non_blocking=True)
         toks = toks.to(device, non_blocking=True)
+        #print(toks)
+        #print(meta[0])
+        #print(toks[0])
+        #h = list(toks[0].cpu().numpy())
+        #print(h)
+        #print(tokenizer.decode(h))
 
         optimizer.zero_grad()
         dims = embeddings.shape
@@ -66,6 +78,10 @@ def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args
         t = time.time()
         with autocast():
             video_embeddings, text_embeddings, logit_scale = model_video(embeddings, toks, prenorm=True, postnorm=True)
+            #logits = text_embeddings @ torch.mean(embeddings, axis=-2).t()
+            #logits_sm = F.softmax(logits*100, dim=-1)
+            #print(logits_sm[0:5, 0:5])
+            #print(f'Diag ratio: {torch.diagonal(logits_sm).sum()/logits_sm.sum()}')
             times['forward_video'] = times.get('forward_video', 0) + time.time()-t
             t = time.time()
             loss_video = loss_func(video_embeddings, text_embeddings, logit_scale)
