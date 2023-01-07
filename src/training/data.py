@@ -372,6 +372,10 @@ def get_data(args, preprocess_fns, epoch=0):
         np.random.shuffle(rand_idxs)
         worker_start_indices = worker_start_indices[rand_idxs]
         worker_end_indices = worker_end_indices[rand_idxs]
+
+        worker_start = worker_start_indices[args.rank]
+        worker_end = worker_end_indices[args.rank]
+
         embeddings_images = EmbeddingReader(
             embeddings_folder=f'{args.image_data}/img_emb/',
             file_format='npy'
