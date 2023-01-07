@@ -382,7 +382,7 @@ def get_data(args, preprocess_fns, epoch=0):
         embeddings_txt = EmbeddingReader(
             embeddings_folder=f'{args.image_data}/text_emb/',
             file_format = 'npy'
-        )
+        ) # hello
         data["img_reader"] = embeddings_images #img_iter
         data["img_txt_reader"] = embeddings_txt #text_iter
         data["worker_start"] = worker_start
