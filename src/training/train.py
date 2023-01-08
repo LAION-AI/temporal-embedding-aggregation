@@ -6,7 +6,6 @@ import torch
 import numpy as np
 
 from torch import nn
-import torch.nn.functional as F
 from training.loss import ClipLoss
 from .distributed import is_master
 import time
