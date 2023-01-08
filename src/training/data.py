@@ -357,10 +357,10 @@ def get_data(args, preprocess_fns, epoch=0):
 
     if args.train_data:
         data["train"] = get_wds_dataset(
-            args, preprocess_train, is_train=True, epoch=epoch, floor=False)
+            args, preprocess_train, is_train=True, epoch=epoch)
     if args.val_data:
         data["val"] = get_wds_dataset(
-            args, preprocess_val, is_train=False, floor=False)
+            args, preprocess_val, is_train=False)
     if args.image_data:
         np.random.seed(args.seed + epoch) # reseed every epoch
         start_loc = np.random.randint(0, 1e7)
