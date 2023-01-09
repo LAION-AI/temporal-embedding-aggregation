@@ -244,7 +244,7 @@ class ResampledShards2(IterableDataset):
             # reset seed w/ epoch if deterministic, worker seed should be deterministic due to arg.seed
             self.rng.seed(self.worker_seed() + epoch)
         for _ in range(self.nshards):
-            yield dict(url=self.rng.choice(self.urls))
+            yield dict(url=self.rng.choice(self.urls)) #.choice
 
 
 def get_wds_dataset(args, emb_transform, is_train, epoch=0, floor=False):
@@ -317,7 +317,7 @@ def get_wds_dataset(args, emb_transform, is_train, epoch=0, floor=False):
         num_worker_batches = round_fn(num_batches / num_workers)  # per dataloader worker
         num_batches = num_worker_batches * num_workers
         num_samples = num_batches * global_batch_size
-        dataset = dataset.with_epoch(num_worker_batches)  # each worker is iterating over this
+        dataset = dataset.with_epoch(num_worker_batches) # each worker is iterating over this
     else:
         # last batches are partial, eval is done on single (master) node
         num_batches = math.ceil(num_samples / args.batch_size)
@@ -362,12 +362,23 @@ def get_data(args, preprocess_fns, epoch=0):
         data["val"] = get_wds_dataset(
             args, preprocess_val, is_train=False)
     if args.image_data:
-        BUFFER = 0
+        np.random.seed(args.seed + epoch) # reseed every epoch
         num_samples_per_worker = args.train_num_samples/args.world_size
-        worker_start_indices = torch.linspace(0, args.train_num_samples-num_samples_per_worker+BUFFER, args.world_size, dtype=torch.long)
+
+        max_start_idx = args.img_dataset_size - args.train_num_samples
+        start_loc = np.random.randint(0, max_start_idx)
+
+        worker_start_indices = torch.linspace(start_loc, start_loc+args.train_num_samples-num_samples_per_worker, args.world_size, dtype=torch.long)
         worker_end_indices = (worker_start_indices + num_samples_per_worker).long()
-        worker_start = worker_start_indices[args.rank].item()
-        worker_end = worker_end_indices[args.rank].item()
+
+        rand_idxs = np.arange(worker_start_indices.shape[0])
+        np.random.shuffle(rand_idxs)
+        worker_start_indices = worker_start_indices[rand_idxs]
+        worker_end_indices = worker_end_indices[rand_idxs]
+
+        worker_start = worker_start_indices[args.rank]
+        worker_end = worker_end_indices[args.rank]
+
         embeddings_images = EmbeddingReader(
             embeddings_folder=f'{args.image_data}/img_emb/',
             file_format='npy'
@@ -375,22 +386,6 @@ def get_data(args, preprocess_fns, epoch=0):
         embeddings_txt = EmbeddingReader(
             embeddings_folder=f'{args.image_data}/text_emb/',
             file_format = 'npy'
-        )
-        img_iter = iter(
-            embeddings_images(
-                batch_size=args.image_batch_size,
-                start=worker_start,
-                end=worker_end,
-                show_progress=False
-            )
-        )
-        text_iter = iter(
-            embeddings_txt(
-                batch_size=args.image_batch_size,
-                start=worker_start,
-                end=worker_end,
-                show_progress=False
-            )
         )
         data["img_reader"] = embeddings_images #img_iter
         data["img_txt_reader"] = embeddings_txt #text_iter

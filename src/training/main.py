@@ -186,7 +186,7 @@ def main():
                     os.path.join(args.checkpoint_path, f"epoch_latest.pt"),
                 )
 
-        data = get_data(args, preprocess)
+        data = get_data(args, preprocess, epoch=completed_epoch)
     if args.report_to == "wandb" and is_master(args):
         wandb.finish()
 

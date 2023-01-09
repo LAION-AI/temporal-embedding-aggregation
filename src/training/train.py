@@ -101,7 +101,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args
             vid_emb = vid_emb.to(device, non_blocking=True)
             try:
                  txt_emb, _ = next(text_iter)
-            except:
+            except: # skips last image batch if it is smaller than expected batch size (this happens if train_num_samples % image_batch_size != 0)
                  continue
             txt_emb = torch.tensor(txt_emb)
             batch_padded_txt_emb = torch.zeros(dims[0], dims[2])
