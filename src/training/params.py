@@ -175,6 +175,12 @@ def parse_args():
         default=True,
         help="Parallelize logit matrix across all devices"
     )
+    parser.add_argument(
+       "--img-dataset-size",
+       type=int,
+       default=int(4e8),
+       help="Number of training samples in the image dataset"
+    )
 
     args = parser.parse_args()
     return args

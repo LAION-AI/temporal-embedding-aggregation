@@ -363,8 +363,11 @@ def get_data(args, preprocess_fns, epoch=0):
             args, preprocess_val, is_train=False)
     if args.image_data:
         np.random.seed(args.seed + epoch) # reseed every epoch
-        start_loc = np.random.randint(0, 1e7)
         num_samples_per_worker = args.train_num_samples/args.world_size
+
+        max_start_idx = args.img_dataset_size - args.train_num_samples
+        start_loc = np.random.randint(0, max_start_idx)
+
         worker_start_indices = torch.linspace(start_loc, start_loc+args.train_num_samples-num_samples_per_worker, args.world_size, dtype=torch.long)
         worker_end_indices = (worker_start_indices + num_samples_per_worker).long()
 
