@@ -58,7 +58,6 @@ def gather_features(
                 gathered_text_features[rank] = text_features
             all_image_features = torch.cat(gathered_image_features, dim=0)
             all_text_features = torch.cat(gathered_text_features, dim=0)
-
     return all_image_features, all_text_features
 
 
@@ -101,8 +100,6 @@ class ClipLoss(nn.Module):
         else:
             logits_per_image = logit_scale * image_features @ text_features.T
             logits_per_text = logit_scale * text_features @ image_features.T
-
-        # calculated ground-truth and cache if enabled
         num_logits = logits_per_image.shape[0]
         if self.prev_num_logits != num_logits or device not in self.labels:
             labels = torch.arange(num_logits, device=device, dtype=torch.long)
@@ -113,7 +110,6 @@ class ClipLoss(nn.Module):
                 self.prev_num_logits = num_logits
         else:
             labels = self.labels[device]
-
         total_loss = (
             F.cross_entropy(logits_per_image, labels) +
             F.cross_entropy(logits_per_text, labels)

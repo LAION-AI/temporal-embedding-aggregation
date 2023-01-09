@@ -4,3 +4,6 @@ tqdm
 einops
 numpy
 tensorboard
+wandb
+open_clip_torch
+embedding_reader

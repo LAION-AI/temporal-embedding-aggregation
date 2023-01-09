@@ -157,6 +157,30 @@ def parse_args():
         default=False,
         help="Always save the most recent model trained to epoch_latest.pt.",
     )
+    parser.add_argument(
+        "--image-data",
+        type=str,
+        default=None,
+        help="s3 folder with image data to train alongside video data"
+    )
+    parser.add_argument(
+        "--image-batch-size",
+        type=int,
+        default=64,
+        help="Batch size of image sequences (batch_size, emb_dim)"
+    )
+    parser.add_argument(
+        "--gather-with-grad",
+        type=bool,
+        default=True,
+        help="Parallelize logit matrix across all devices"
+    )
+    parser.add_argument(
+       "--img-dataset-size",
+       type=int,
+       default=int(4e8),
+       help="Number of training samples in the image dataset"
+    )
 
     args = parser.parse_args()
     return args

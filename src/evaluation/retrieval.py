@@ -8,6 +8,7 @@ def retrieval_evaluation(model_video, data, multicaption=False):
         dataloader = data["val"].dataloader
     else:
         dataloader = data
+    model_video.eval()
     device = "cuda" if torch.cuda.is_available() else "cpu"
     all_video_features, all_text_features = [], []
     max_txt_len = 1
