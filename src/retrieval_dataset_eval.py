@@ -6,13 +6,13 @@ from aggregation.aggregator_wrapper import VideoCLIP
 from evaluation.retrieval import retrieval_evaluation
 import wandb
 
-def evaluate_datasets_and_ckpts(eval_data):
+def evaluate_datasets_and_ckpts(eval_data, args):
     for ckpt, tar, multicaption, name in eval_data:
         print(f'Eval for {name}')
         assert isinstance(ckpt, VideoCLIP)
         val_reader = EmbeddingWebDatasetReader(
             tar,
-            standard_seq_len=200,
+            standard_seq_len=args.seq_len,
             batch_size=1,
             num_prepro_workers=8,
             to_tensor=False,
@@ -48,6 +48,12 @@ def parse_args():
         action="store_true",
         default=False,
         help="Log metrics to wandb"
+    )
+    parser.add_argument(
+        "--seq-len",
+        type=int,
+        default=200,
+        help="Sequence length for transformer aggregator"
     )
     args = parser.parse_args()
     return args
