@@ -56,8 +56,9 @@ def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args
         step = num_batches_per_epoch * epoch + i
         scheduler(step)
 
-        embeddings, toks, meta = batch
+        embeddings, zero_masks, toks, meta = batch
         embeddings = embeddings.to(device, non_blocking=True)
+        zero_masks = zero_masks.to(device, non_blocking=True)
         toks = toks.to(device, non_blocking=True)
 
         optimizer.zero_grad()
@@ -65,7 +66,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args
         times['dataloader_video'] = times.get('dataloader_video', 0) + time.time()-t
         t = time.time()
         with autocast():
-            video_embeddings, text_embeddings, logit_scale = model_video(embeddings, toks, prenorm=True, postnorm=True)
+            video_embeddings, text_embeddings, logit_scale = model_video(embeddings, toks, attn_masks=zero_masks, prenorm=True, postnorm=True)
             times['forward_video'] = times.get('forward_video', 0) + time.time()-t
             t = time.time()
             loss_video = loss_func(video_embeddings, text_embeddings, logit_scale)
@@ -91,6 +92,8 @@ def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args
             except:
                 continue
             img_embeddings = torch.tensor(img_embeddings)
+            zero_masks = torch.zeros(dims[0], args.sequence_length, dtype=torch.bool) 
+            zero_masks[:, 0] = True
 
             batch_padded_img_embeddings = torch.zeros(dims[0], dims[2])
             batch_padded_img_embeddings[:len(img_embeddings), :] = img_embeddings
@@ -110,7 +113,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args
             times['dataloader_image'] = times.get('dataloader_image', 0) + time.time()-t
             t = time.time()
             with autocast():
-                vid_emb, _, logit_scale = model_video(vid_emb, toks, prenorm=True, postnorm=True)
+                vid_emb, _, logit_scale = model_video(vid_emb, toks, attn_masks=zero_masks, prenorm=True, postnorm=True)
                 times['forward_image'] = times.get('forward_image', 0) + time.time()-t
                 t = time.time()
                 loss_image = loss_func(vid_emb, batch_padded_txt_emb, logit_scale)
