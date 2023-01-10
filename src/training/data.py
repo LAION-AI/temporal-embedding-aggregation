@@ -79,8 +79,16 @@ def get_preprocess_emb(postprocess_npy, standard_seq_len):
         if standard_seq_len != -1:
             emb, zero_mask = standardize_embedding_shape(emb, standard_seq_len) # TODO: nto using zero masks
         emb = torch.from_numpy(emb)
+        zero_mask = torch.from_numpy(zero_mask)
         return emb
     return preproc_emb
+def get_preprocess_mask(seq_len):
+    def preproc_mask(npy):
+        emb = preprocess_npy(npy)
+        zero_mask = torch.ones(seq_len, dtype=torch.bool)
+        zero_mask[min(len(npy), seq_len):] = False
+        return zero_mask
+    return preproc_mask
 
 def get_dataset_size(shards):
     shards_list = list(braceexpand.braceexpand(shards))
@@ -297,11 +305,12 @@ def get_wds_dataset(args, emb_transform, is_train, epoch=0, floor=False):
         ])
 
     preprocess_emb = get_preprocess_emb(emb_transform, args.sequence_length)
+    preprocess_mask = get_preprocess_mask(args.sequence_length)
     pipeline.extend([
         wds.select(filter_no_caption),
-        wds.rename(embeddings="npy", text="txt", meta="json"),
-        wds.map_dict(embeddings=preprocess_emb, text=preprocess_txt),
-        wds.to_tuple("embeddings", "text", "meta"),
+        wds.rename(embeddings="npy", masks="npy", text="txt", meta="json"),
+        wds.map_dict(embeddings=preprocess_emb, masks=preprocess_mask, text=preprocess_txt),
+        wds.to_tuple("embeddings", "masks", "text", "meta"),
         wds.batched(args.batch_size, partial=not is_train),
     ])
 

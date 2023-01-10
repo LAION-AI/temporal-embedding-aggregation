@@ -62,11 +62,15 @@ class Attention(nn.Module):
             nn.Dropout(dropout)
         ) if project_out else nn.Identity()
 
-    def forward(self, x):
+    def forward(self, x, attn_mask=None):
         qkv = self.to_qkv(x).chunk(3, dim = -1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.heads), qkv)
 
         dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
+
+        if attn_mask is not None:
+            attn_mask = repeat(attn_mask.unsqueeze(1), 'b 1 d -> b 1 d x', x=attn_mask.shape[-1])
+            dots = dots.masked_fill(~attn_mask, -torch.finfo(dots.dtype).max)
 
         attn = self.attend(dots)
         attn = self.dropout(attn)
@@ -94,11 +98,11 @@ class SelfAttentionalPooler(nn.Module):
         else:
             self.mlp_head = nn.Identity()
 
-    def forward(self, x):
+    def forward(self, x, attn_masks=None):
         x = x.type(torch.float32)
         x += self.pos_encoding
         for attn, ff in self.layers:
-            x = attn(x) + x
+            x = attn(x, attn_mask=attn_masks) + x
             x = ff(x) + x
 
         x = torch.mean(x, 1)
