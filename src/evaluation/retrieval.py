@@ -16,6 +16,7 @@ def retrieval_evaluation(model_video, data, multicaption=False):
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
             embeddings = batch["embeddings"]
+            zero_masks = batch["zero_mask"].type(torch.bool)
             toks = []
             # TODO: does this require batch_size = 1 ??
             for cap in batch["text"]:
@@ -30,9 +31,10 @@ def retrieval_evaluation(model_video, data, multicaption=False):
 
             toks = torch.cat(toks)
             embeddings = embeddings.to(device, non_blocking=True)
+            zero_masks = zero_masks.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
 
-            video_embeddings, text_embeddings, _ = model_video(embeddings, toks, prenorm=True, postnorm=True)
+            video_embeddings, text_embeddings, _ = model_video(embeddings, toks, attn_masks=zero_masks, prenorm=True, postnorm=True)
 
             all_video_features.append(video_embeddings.cpu())
             all_text_features.append(text_embeddings.cpu())

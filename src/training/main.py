@@ -124,9 +124,9 @@ def main():
     elif args.report_to == "wandb" and is_master(args):
         logging.debug("Starting wandb.")
         wandb.init(
-            project="",
-            entity="", #TODO: do you need this?
+            project="video-clip",
             name=args.name,
+            resume="auto",
             config=vars(args),
         )
         if args.debug: # TODO test this out

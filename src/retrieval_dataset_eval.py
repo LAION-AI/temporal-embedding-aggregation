@@ -85,6 +85,8 @@ if __name__ == "__main__":
 '''
 ckpt_dir = "/fsx/daniel_mend/videoclip_logs/logs/"
 videos_dir = "2022_12_31-03_44_03-model_self_attn_default-lr_0.001-b_500-j_6/checkpoints/"
+ckpt_dir = "logs/"
+videos_dir = "2023_01_07-09_04_31-model_self_attn_default-lr_0.001-b_667-j_6/checkpoints/"
 video_ckpts = []
 eval_data = []
 data_loc = 'pipe:aws s3 cp s3://s-laion/msr_vtt/clip_msr_vtt/oc_h14/test_fix/{000000000..000000007}.tar -'
