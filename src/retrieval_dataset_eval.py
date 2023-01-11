@@ -1,14 +1,15 @@
 import torch
+import os
 import argparse
 from aggregation.factory import create_model
 from clip_video_encode.dataset import EmbeddingWebDatasetReader
 from aggregation.aggregator_wrapper import VideoCLIP
 from evaluation.retrieval import retrieval_evaluation
+import time
 import wandb
 
 def evaluate_datasets_and_ckpts(eval_data, args):
-    for ckpt, tar, multicaption, name in eval_data:
-        print(f'Eval for {name}')
+    for ckpt, tar, multicaption in eval_data:
         assert isinstance(ckpt, VideoCLIP)
         val_reader = EmbeddingWebDatasetReader(
             tar,
@@ -26,28 +27,16 @@ def evaluate_datasets_and_ckpts(eval_data, args):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--checkpoint-path",
+        "--checkpoint-dir",
         type=str,
         default=None,
-        help="Path to checkpoint",
+        help="Dir with checkpoints",
     )
     parser.add_argument(
         "--val-data",
         type=str,
         default=None,
-        help="Location of webdataset tar files with evaluation data" 
-    )
-    parser.add_argument(
-        "--name",
-        type=str,
-        default=None,
-        help="Name of videoclip run"
-    )
-    parser.add_argument(
-        "--wandb",
-        action="store_true",
-        default=False,
-        help="Log metrics to wandb"
+        help="Location of webdataset tar files with evaluation data"
     )
     parser.add_argument(
         "--seq-len",
@@ -55,13 +44,19 @@ def parse_args():
         default=200,
         help="Sequence length for transformer aggregator"
     )
+    parser.add_argument(
+        "--cfg",
+        type=str,
+        default=None,
+        help="Model config for eval"
+    )
     args = parser.parse_args()
     return args
 
-def load_checkpoint(checkpoint_path):
+def load_checkpoint(ckpt, args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    checkpoint = torch.load(checkpoint_path, map_location=device)
-    model_video, model_str = create_model("aggregation/model_configs/self_attn_default.json")
+    checkpoint = torch.load(ckpt, map_location=device)
+    model_video, model_str = create_model(args.cfg)
     model_video = model_video.to(device)
     sd = checkpoint['state_dict']
     state_dict_real = {'.'.join(a.split('.')[1:]):sd[a] for a in sd}
@@ -70,38 +65,29 @@ def load_checkpoint(checkpoint_path):
 
 def main():
     args = parse_args()
-    print(args.checkpoint_path)
-    epoch = int(args.checkpoint_path.split('/')[-1].split('_')[1].split('.')[0])
-    model_video = load_checkpoint(args.checkpoint_path)
-    eval_data = [(model_video, args.val_data, True, 'videoclp')]
-    metrics = evaluate_datasets_and_ckpts(eval_data)
-    if args.wandb:
-        wandb.init(
-             project="laion-video-clip",
-             resume="auto",
-             name=args.name
-        )
+    seen_checkpoints = set()
+    name = args.checkpoint_dir.split('/')[-3]
+    wandb.init(
+        project="laion-video-clip",
+        name=name,
+    )
+    while True:
+        checkpoints = os.listdir(args.checkpoint_dir)
+        checkpoints = [x for x in checkpoints if 'latest' not in x]
+        checkpoints = sorted(checkpoints, key=lambda i: int(i.split('_')[1].split('.')[0]))
+        for checkpoint in checkpoints:
+            if checkpoint not in seen_checkpoints:
+                seen_checkpoints.add(checkpoint)
+                epoch = checkpoint.split('_')[1].split('.')[0]
+                full_ckpt_path = args.checkpoint_dir + checkpoint
+                print(checkpoint, epoch)
+                model_video = load_checkpoint(full_ckpt_path, args)
+                metrics = evaluate_datasets_and_ckpts([(model_video, args.val_data, True)], args)
+                for metric, value in metrics.items():
+                     print(metric, value)
+                     wandb.log({f'eval/{metric}': value, 'step': epoch})
 
-        for metric, value in metrics.items():
-             wandb.log({f'eval/{metric}': value, 'step': epoch})
+        time.sleep(120)
 
 if __name__ == "__main__":
     main()
-
-'''
-ckpt_dir = "/fsx/daniel_mend/videoclip_logs/logs/"
-videos_dir = "2022_12_31-03_44_03-model_self_attn_default-lr_0.001-b_500-j_6/checkpoints/"
-ckpt_dir = "logs/"
-videos_dir = "2023_01_07-09_04_31-model_self_attn_default-lr_0.001-b_667-j_6/checkpoints/"
-video_ckpts = []
-eval_data = []
-data_loc = 'pipe:aws s3 cp s3://s-laion/msr_vtt/clip_msr_vtt/oc_h14/test_fix/{000000000..000000007}.tar -'
-print("Loading checkpoints...")
-for i in range(1, 2):
-		video_ckpts.append(model_video)
-
-for i in range(len(video_ckpts)):
-	eval_data.append((video_ckpts[i], data_loc, True, f'video_{i+1}'))
-
-evaluate_datasets_and_ckpts(eval_data)
-'''
