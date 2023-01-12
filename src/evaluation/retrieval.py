@@ -3,16 +3,16 @@ import numpy as np
 import torch
 from einops import rearrange
 
-def retrieval_evaluation(model_video, data, multicaption=False):
+def retrieval_evaluation(model_video, data, multicaption=False, device="cuda"):
     if type(data) == dict:
         dataloader = data["val"].dataloader
     else:
         dataloader = data
     model_video.eval()
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model_video.to(device, non_blocking=True)
     all_video_features, all_text_features = [], []
     max_txt_len = 1
-    
+
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
             embeddings = batch["embeddings"]
@@ -23,7 +23,7 @@ def retrieval_evaluation(model_video, data, multicaption=False):
                 if multicaption:
                     caps_list = cap.split(';')
                     max_txt_len = max(max_txt_len, len(caps_list))
-            
+
                     for c in caps_list: # multiple captions separated by ;
                         toks.append(open_clip.tokenize(c))
                 else:
@@ -33,6 +33,7 @@ def retrieval_evaluation(model_video, data, multicaption=False):
             embeddings = embeddings.to(device, non_blocking=True)
             zero_masks = zero_masks.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
+
 
             video_embeddings, text_embeddings, _ = model_video(embeddings, toks, attn_masks=zero_masks, prenorm=True, postnorm=True)
 

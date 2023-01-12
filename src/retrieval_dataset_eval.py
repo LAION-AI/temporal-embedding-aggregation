@@ -7,22 +7,24 @@ from aggregation.aggregator_wrapper import VideoCLIP
 from evaluation.retrieval import retrieval_evaluation
 import time
 import wandb
+from functools import partial
+import multiprocessing
+from multiprocessing import Pool
 
-def evaluate_datasets_and_ckpts(eval_data, args):
-    for ckpt, tar, multicaption in eval_data:
-        assert isinstance(ckpt, VideoCLIP)
-        val_reader = EmbeddingWebDatasetReader(
-            tar,
-            standard_seq_len=args.seq_len,
-            batch_size=1,
-            num_prepro_workers=8,
-            to_tensor=False,
-            enable_text=True,
-            enable_meta=True
-        )
+def evaluate(ckpt, epoch, device, args):
+    assert isinstance(ckpt, VideoCLIP)
+    val_reader = EmbeddingWebDatasetReader(
+        args.val_data,
+        standard_seq_len=args.seq_len,
+        batch_size=1,
+        num_prepro_workers=0,
+        to_tensor=False,
+        enable_text=True,
+        enable_meta=True
+    )
 
-        metrics = retrieval_evaluation(ckpt, val_reader, multicaption)
-        return metrics
+    metrics = retrieval_evaluation(ckpt, val_reader, args.multicaption, device=device)
+    return {'metrics': metrics, 'epoch': epoch}
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -50,11 +52,19 @@ def parse_args():
         default=None,
         help="Model config for eval"
     )
+    parser.add_argument(
+        "--multicaption",
+        type=bool,
+        default=True,
+        help="Whether or not to do multicaption eval"
+    )
     args = parser.parse_args()
     return args
 
 def load_checkpoint(ckpt, args):
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    rank = multiprocessing.current_process()._identity
+    device = f'cuda:{rank}'
+    print(rank)
     checkpoint = torch.load(ckpt, map_location=device)
     model_video, model_str = create_model(args.cfg)
     model_video = model_video.to(device)
@@ -62,6 +72,20 @@ def load_checkpoint(ckpt, args):
     state_dict_real = {'.'.join(a.split('.')[1:]):sd[a] for a in sd}
     model_video.load_state_dict(state_dict_real)
     return model_video
+
+def multiprocess_eval(ckpt, args):
+    rank = multiprocessing.current_process()._identity[0]-1
+
+    epoch = int(ckpt.split('.')[-2].split('_')[-1])
+    device = f'cuda:{rank}'
+    print(f'rank: {rank}, epoch: {epoch}, device: {device}')
+    checkpoint = torch.load(ckpt, map_location=device)
+    model_video, model_str = create_model(args.cfg)
+    model_video = model_video.to(device, non_blocking=True)
+    sd = checkpoint['state_dict']
+    state_dict_real = {'.'.join(a.split('.')[1:]):sd[a] for a in sd}
+    model_video.load_state_dict(state_dict_real)
+    return evaluate(model_video, epoch, device, args)
 
 def main():
     args = parse_args()
@@ -75,17 +99,19 @@ def main():
         checkpoints = os.listdir(args.checkpoint_dir)
         checkpoints = [x for x in checkpoints if 'latest' not in x]
         checkpoints = sorted(checkpoints, key=lambda i: int(i.split('_')[1].split('.')[0]))
+        checkpoints = [args.checkpoint_dir + ckpt for ckpt in checkpoints]
+        checkpoints = [x for x in checkpoints if x not in seen_checkpoints]
         for checkpoint in checkpoints:
-            if checkpoint not in seen_checkpoints:
-                seen_checkpoints.add(checkpoint)
-                epoch = checkpoint.split('_')[1].split('.')[0]
-                full_ckpt_path = args.checkpoint_dir + checkpoint
-                print(checkpoint, epoch)
-                model_video = load_checkpoint(full_ckpt_path, args)
-                metrics = evaluate_datasets_and_ckpts([(model_video, args.val_data, True)], args)
+            seen_checkpoints.add(checkpoint)
+
+        with Pool(processes=8) as pool:
+            for eval in pool.imap_unordered(partial(multiprocess_eval, args=args), checkpoints):
+                print(eval)
+                metrics = eval['metrics']
+                epoch = eval['epoch']
                 for metric, value in metrics.items():
-                     print(metric, value)
-                     wandb.log({f'eval/{metric}': value, 'step': epoch})
+                    print(metric, value)
+                    wandb.log({f'eval/{metric}': value, 'epoch': epoch})
 
         time.sleep(120)
 
