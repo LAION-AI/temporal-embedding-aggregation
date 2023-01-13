@@ -64,7 +64,6 @@ def parse_args():
 def load_checkpoint(ckpt, args):
     rank = multiprocessing.current_process()._identity
     device = f'cuda:{rank}'
-    print(rank)
     checkpoint = torch.load(ckpt, map_location=device)
     model_video, model_str = create_model(args.cfg)
     model_video = model_video.to(device)
@@ -74,11 +73,13 @@ def load_checkpoint(ckpt, args):
     return model_video
 
 def multiprocess_eval(ckpt, args):
+    print(multiprocessing.current_process()._identity)
     rank = multiprocessing.current_process()._identity[0]-1
 
     epoch = int(ckpt.split('.')[-2].split('_')[-1])
     device = f'cuda:{rank}'
     print(f'rank: {rank}, epoch: {epoch}, device: {device}')
+    print(ckpt)
     checkpoint = torch.load(ckpt, map_location=device)
     model_video, model_str = create_model(args.cfg)
     model_video = model_video.to(device, non_blocking=True)
@@ -95,16 +96,16 @@ def main():
         project="laion-video-clip",
         name=name,
     )
-    while True:
-        checkpoints = os.listdir(args.checkpoint_dir)
-        checkpoints = [x for x in checkpoints if 'latest' not in x]
-        checkpoints = sorted(checkpoints, key=lambda i: int(i.split('_')[1].split('.')[0]))
-        checkpoints = [args.checkpoint_dir + ckpt for ckpt in checkpoints]
-        checkpoints = [x for x in checkpoints if x not in seen_checkpoints]
-        for checkpoint in checkpoints:
-            seen_checkpoints.add(checkpoint)
+    with Pool(processes=8) as pool:
+        while True:
+            checkpoints = os.listdir(args.checkpoint_dir)
+            checkpoints = [x for x in checkpoints if 'latest' not in x]
+            checkpoints = sorted(checkpoints, key=lambda i: int(i.split('_')[1].split('.')[0]))
+            checkpoints = [args.checkpoint_dir + ckpt for ckpt in checkpoints]
+            checkpoints = [x for x in checkpoints if x not in seen_checkpoints]
+            for checkpoint in checkpoints:
+                seen_checkpoints.add(checkpoint)
 
-        with Pool(processes=8) as pool:
             for eval in pool.imap_unordered(partial(multiprocess_eval, args=args), checkpoints):
                 print(eval)
                 metrics = eval['metrics']
@@ -112,8 +113,8 @@ def main():
                 for metric, value in metrics.items():
                     print(metric, value)
                     wandb.log({f'eval/{metric}': value, 'epoch': epoch})
-
-        time.sleep(120)
+            if len(checkpoints) == 0:
+                time.sleep(300)
 
 if __name__ == "__main__":
     main()
