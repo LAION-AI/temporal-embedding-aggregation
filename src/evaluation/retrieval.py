@@ -18,6 +18,7 @@ def retrieval_evaluation(model_video, data, multicaption=False, device="cuda"):
             embeddings = batch["embeddings"]
             zero_masks = batch["zero_mask"].type(torch.bool)
             toks = []
+
             # TODO: does this require batch_size = 1 ??
             for cap in batch["text"]:
                 if multicaption:
@@ -34,7 +35,6 @@ def retrieval_evaluation(model_video, data, multicaption=False, device="cuda"):
             zero_masks = zero_masks.to(device, non_blocking=True)
             toks = toks.to(device, non_blocking=True)
 
-
             video_embeddings, text_embeddings, _ = model_video(embeddings, toks, attn_masks=zero_masks, prenorm=True, postnorm=True)
 
             all_video_features.append(video_embeddings.cpu())
@@ -46,7 +46,7 @@ def retrieval_evaluation(model_video, data, multicaption=False, device="cuda"):
             zero_pad_text_features(all_text_features, max_txt_len, dim_model=dim_model)
         ) if multicaption else torch.cat(all_text_features).unsqueeze(1)
         video_features = torch.cat(all_video_features)
-        
+
         val_metrics = get_metrics(
             video_features=video_features,
             text_features=text_features,

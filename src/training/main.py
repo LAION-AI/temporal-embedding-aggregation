@@ -124,9 +124,9 @@ def main():
     elif args.report_to == "wandb" and is_master(args):
         logging.debug("Starting wandb.")
         wandb.init(
-            project="video-clip",
+            project="laion-video-clip",
             name=args.name,
-            resume="auto",
+            resume="allow",
             config=vars(args),
         )
         if args.debug: # TODO test this out
@@ -158,7 +158,7 @@ def main():
     for epoch in range(start_epoch, args.epochs):
         if is_master(args):
             logging.info(f'Start epoch {epoch}')
-        
+
         train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args, writer)
         completed_epoch = epoch + 1
 

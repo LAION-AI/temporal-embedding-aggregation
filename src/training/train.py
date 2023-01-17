@@ -92,7 +92,7 @@ def train_one_epoch(model_video, data, epoch, optimizer, scaler, scheduler, args
             except:
                 continue
             img_embeddings = torch.tensor(img_embeddings)
-            zero_masks = torch.zeros(dims[0], args.sequence_length, dtype=torch.bool) 
+            zero_masks = torch.zeros(dims[0], args.sequence_length, dtype=torch.bool)
             zero_masks[:, 0] = True
 
             batch_padded_img_embeddings = torch.zeros(dims[0], dims[2])
