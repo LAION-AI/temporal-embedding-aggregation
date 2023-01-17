@@ -37,11 +37,6 @@ class VideoCLIP(nn.Module):
         self.model_text = CLIPTxt(clip_model)
         self.logit_scale = torch.nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
-    def to(self, *args, **kwargs):
-        self = super().to(*args, **kwargs)
-        self.model_text.attn_mask.to(*args, **kwargs)
-        return self
-
     def encode_text(self, x, postnorm=True):
         with torch.no_grad():
             text_embeddings = self.model_text(x).float()
