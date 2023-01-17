@@ -124,7 +124,7 @@ def main():
     elif args.report_to == "wandb" and is_master(args):
         logging.debug("Starting wandb.")
         wandb.init(
-            project="laion-video-clip",
+            project="",
             name=args.name,
             resume="allow",
             config=vars(args),
