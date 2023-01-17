@@ -61,25 +61,11 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def load_checkpoint(ckpt, args):
-    rank = multiprocessing.current_process()._identity
-    device = f'cuda:{rank}'
-    checkpoint = torch.load(ckpt, map_location=device)
-    model_video, model_str = create_model(args.cfg)
-    model_video = model_video.to(device)
-    sd = checkpoint['state_dict']
-    state_dict_real = {'.'.join(a.split('.')[1:]):sd[a] for a in sd}
-    model_video.load_state_dict(state_dict_real)
-    return model_video
-
 def multiprocess_eval(ckpt, args):
-    print(multiprocessing.current_process()._identity)
     rank = multiprocessing.current_process()._identity[0]-1
 
     epoch = int(ckpt.split('.')[-2].split('_')[-1])
     device = f'cuda:{rank}'
-    print(f'rank: {rank}, epoch: {epoch}, device: {device}')
-    print(ckpt)
     checkpoint = torch.load(ckpt, map_location=device)
     model_video, model_str = create_model(args.cfg)
     model_video = model_video.to(device, non_blocking=True)
@@ -107,11 +93,9 @@ def main():
                 seen_checkpoints.add(checkpoint)
 
             for eval in pool.imap_unordered(partial(multiprocess_eval, args=args), checkpoints):
-                print(eval)
                 metrics = eval['metrics']
                 epoch = eval['epoch']
                 for metric, value in metrics.items():
-                    print(metric, value)
                     wandb.log({f'eval/{metric}': value, 'epoch': epoch})
             if len(checkpoints) == 0:
                 time.sleep(300)
