@@ -22,8 +22,8 @@ def evaluate(ckpt, epoch, device, args):
         enable_text=True,
         enable_meta=True
     )
-
-    metrics = retrieval_evaluation(ckpt, val_reader, args.multicaption, device=device)
+    ckpt = ckpt.to(device, non_blocking=True)
+    metrics = retrieval_evaluation(ckpt, val_reader, args.multicaption)
     return {'metrics': metrics, 'epoch': epoch}
 
 def parse_args():

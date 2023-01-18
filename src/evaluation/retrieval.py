@@ -3,13 +3,12 @@ import numpy as np
 import torch
 from einops import rearrange
 
-def retrieval_evaluation(model_video, data, multicaption=False, device="cuda"):
+def retrieval_evaluation(model_video, data, multicaption=False):
     if type(data) == dict:
         dataloader = data["val"].dataloader
     else:
         dataloader = data
     model_video.eval()
-    model_video.to(device, non_blocking=True)
     all_video_features, all_text_features = [], []
     max_txt_len = 1
 
