@@ -69,6 +69,7 @@ def multiprocess_eval(ckpt, args):
     checkpoint = torch.load(ckpt, map_location=device)
     model_video, model_str = create_model(args.cfg)
     model_video = model_video.to(device, non_blocking=True)
+    model_video.model_text.attn_mask = model_video.model_text.attn_mask.to(device, non_blocking=True) # TODO: fix CLIPTxt device issues (likely by removing CLIPTxt)
     sd = checkpoint['state_dict']
     state_dict_real = {'.'.join(a.split('.')[1:]):sd[a] for a in sd}
     model_video.load_state_dict(state_dict_real)
@@ -78,10 +79,12 @@ def main():
     args = parse_args()
     seen_checkpoints = set()
     name = args.checkpoint_dir.split('/')[-3]
+
     wandb.init(
-        project="laion-video-clip",
+        project="video-clip",
         name=name,
     )
+
     with Pool(processes=8) as pool:
         while True:
             checkpoints = os.listdir(args.checkpoint_dir)
