@@ -9,6 +9,7 @@ def retrieval_evaluation(model_video, data, multicaption=False):
     else:
         dataloader = data
     model_video.eval()
+    device = model_video.device
     all_video_features, all_text_features = [], []
     max_txt_len = 1
 

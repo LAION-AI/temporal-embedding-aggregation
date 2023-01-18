@@ -69,7 +69,6 @@ def multiprocess_eval(ckpt, args):
     checkpoint = torch.load(ckpt, map_location=device)
     model_video, model_str = create_model(args.cfg)
     model_video = model_video.to(device, non_blocking=True)
-    model_video.model_text.attn_mask = model_video.model_text.attn_mask.to(device, non_blocking=True)
     sd = checkpoint['state_dict']
     state_dict_real = {'.'.join(a.split('.')[1:]):sd[a] for a in sd}
     model_video.load_state_dict(state_dict_real)
