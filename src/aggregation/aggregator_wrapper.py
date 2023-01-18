@@ -12,7 +12,6 @@ class CLIPTxt(torch.nn.Module):
         self.ln_final = clip.ln_final
         self.text_projection = clip.text_projection
         self.attn_mask = clip.attn_mask
-        # self.device = "cpu"
 
     def forward(self, text):
 #        device = next(self.transformer.parameters()).device
