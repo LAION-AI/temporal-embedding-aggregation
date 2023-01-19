@@ -9,21 +9,22 @@ def retrieval_evaluation(model_video, data, multicaption=False):
     else:
         dataloader = data
     model_video.eval()
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = model_video.logit_scale.data.device
     all_video_features, all_text_features = [], []
     max_txt_len = 1
-    
+
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
             embeddings = batch["embeddings"]
             zero_masks = batch["zero_mask"].type(torch.bool)
             toks = []
+
             # TODO: does this require batch_size = 1 ??
             for cap in batch["text"]:
                 if multicaption:
                     caps_list = cap.split(';')
                     max_txt_len = max(max_txt_len, len(caps_list))
-            
+
                     for c in caps_list: # multiple captions separated by ;
                         toks.append(open_clip.tokenize(c))
                 else:
@@ -45,7 +46,7 @@ def retrieval_evaluation(model_video, data, multicaption=False):
             zero_pad_text_features(all_text_features, max_txt_len, dim_model=dim_model)
         ) if multicaption else torch.cat(all_text_features).unsqueeze(1)
         video_features = torch.cat(all_video_features)
-        
+
         val_metrics = get_metrics(
             video_features=video_features,
             text_features=text_features,

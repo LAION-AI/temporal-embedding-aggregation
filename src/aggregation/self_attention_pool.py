@@ -104,8 +104,11 @@ class SelfAttentionalPooler(nn.Module):
         for attn, ff in self.layers:
             x = attn(x, attn_mask=attn_masks) + x
             x = ff(x) + x
-
-        x = torch.mean(x, 1)
+        if attn_masks is not None: # masked mean
+            denom = torch.sum(attn_masks, dim=-1, keepdim=True)
+            x = torch.sum(x * attn_masks.unsqueeze(-1), dim=1)/denom
+        else:
+            x = torch.mean(x, 1)
         x = self.mlp_head(x)
-        
+
         return x

@@ -1,51 +1,107 @@
-import open_clip
-import torch 
+import torch
 import os
+import argparse
 from aggregation.factory import create_model
-
 from clip_video_encode.dataset import EmbeddingWebDatasetReader
-from aggregation.mean import Mean
 from aggregation.aggregator_wrapper import VideoCLIP
 from evaluation.retrieval import retrieval_evaluation
+import time
+import wandb
+from functools import partial
+import multiprocessing
+from multiprocessing import Pool
 
-oc_h14, _, preprocess = open_clip.create_model_and_transforms("ViT-H-14", pretrained="laion2b_s32b_b79k")
+def evaluate(ckpt, epoch, device, args):
+    assert isinstance(ckpt, VideoCLIP)
+    val_reader = EmbeddingWebDatasetReader(
+        args.val_data,
+        standard_seq_len=args.seq_len,
+        batch_size=1,
+        num_prepro_workers=0,
+        to_tensor=False,
+        enable_text=True,
+        enable_meta=True
+    )
+    ckpt = ckpt.to(device, non_blocking=True)
+    metrics = retrieval_evaluation(ckpt, val_reader, args.multicaption)
+    return {'metrics': metrics, 'epoch': epoch}
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-oc_h14.to(device)
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--checkpoint-dir",
+        type=str,
+        default=None,
+        help="Dir with checkpoints",
+    )
+    parser.add_argument(
+        "--val-data",
+        type=str,
+        default=None,
+        help="Location of webdataset tar files with evaluation data"
+    )
+    parser.add_argument(
+        "--seq-len",
+        type=int,
+        default=200,
+        help="Sequence length for transformer aggregator"
+    )
+    parser.add_argument(
+        "--cfg",
+        type=str,
+        default=None,
+        help="Model config for eval"
+    )
+    parser.add_argument(
+        "--multicaption",
+        type=bool,
+        default=True,
+        help="Whether or not to do multicaption eval"
+    )
+    args = parser.parse_args()
+    return args
 
-def evaluate_datasets_and_ckpts(eval_data):
-    for ckpt, tar, multicaption, name in eval_data:
-        print(f'Eval for {name}')
-        assert isinstance(ckpt, VideoCLIP)
-        val_reader = EmbeddingWebDatasetReader(
-            tar,
-            standard_seq_len=200,
-            batch_size=1,
-            num_prepro_workers=8,
-            to_tensor=False,
-            enable_text=True,
-            enable_meta=True
-        )
-        
-        metrics = retrieval_evaluation(ckpt, val_reader, multicaption)
-        print(metrics)
+def multiprocess_eval(ckpt, args):
+    rank = multiprocessing.current_process()._identity[0]-1
 
-ckpt_dir = "logs/"
-videos_dir = "2023_01_07-09_04_31-model_self_attn_default-lr_0.001-b_667-j_6/checkpoints/"
-video_ckpts = []
-eval_data = []
-data_loc = 'pipe:aws s3 cp s3://s-laion/msr_vtt/clip_msr_vtt/oc_h14/test_fix/{000000000..000000007}.tar -'
-print("Loading checkpoints...")
-for i in range(1, 6):
-	checkpoint = torch.load(f"{ckpt_dir}{videos_dir}epoch_{i}.pt", map_location=device)
-	model_video, model_str = create_model("aggregation/model_configs/self_attn_default.json")
-	model_video = model_video.to(device)
-	sd = checkpoint['state_dict']
-	state_dict_real = {'.'.join(a.split('.')[1:]):sd[a] for a in sd}
-	model_video.load_state_dict(state_dict_real)
-	video_ckpts.append(model_video)
+    epoch = int(ckpt.split('.')[-2].split('_')[-1])
+    device = f'cuda:{rank}'
+    checkpoint = torch.load(ckpt, map_location=device)
+    model_video, model_str = create_model(args.cfg)
+    model_video = model_video.to(device, non_blocking=True)
+    model_video.model_text.attn_mask = model_video.model_text.attn_mask.to(device, non_blocking=True) # TODO: fix CLIPTxt device issues (likely by removing CLIPTxt)
+    sd = checkpoint['state_dict']
+    state_dict_real = {'.'.join(a.split('.')[1:]):sd[a] for a in sd}
+    model_video.load_state_dict(state_dict_real)
+    return evaluate(model_video, epoch, device, args)
 
-for i in range(len(video_ckpts)):
-	eval_data.append((video_ckpts[i], data_loc, True, f'video_{i+1}'))
+def main():
+    args = parse_args()
+    seen_checkpoints = set()
+    name = args.checkpoint_dir.split('/')[-3]
 
-evaluate_datasets_and_ckpts(eval_data)
+    wandb.init(
+        project="video-clip",
+        name=name,
+    )
+
+    with Pool(processes=8) as pool:
+        while True:
+            checkpoints = os.listdir(args.checkpoint_dir)
+            checkpoints = [x for x in checkpoints if 'latest' not in x]
+            checkpoints = sorted(checkpoints, key=lambda i: int(i.split('_')[1].split('.')[0]))
+            checkpoints = [args.checkpoint_dir + ckpt for ckpt in checkpoints]
+            checkpoints = [x for x in checkpoints if x not in seen_checkpoints]
+            for checkpoint in checkpoints:
+                seen_checkpoints.add(checkpoint)
+
+            for eval in pool.imap_unordered(partial(multiprocess_eval, args=args), checkpoints):
+                metrics = eval['metrics']
+                epoch = eval['epoch']
+                for metric, value in metrics.items():
+                    wandb.log({f'eval/{metric}': value, 'epoch': epoch})
+            if len(checkpoints) == 0:
+                time.sleep(300)
+
+if __name__ == "__main__":
+    main()
